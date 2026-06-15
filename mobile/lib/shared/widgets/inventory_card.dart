@@ -82,7 +82,7 @@ class _InventoryCardState extends State<InventoryCard> {
                   const SizedBox(width: 4),
                   Expanded(
                     child: Text(
-                      '${widget.cartName} · ${widget.layerName}',
+                      widget.cartName.isEmpty ? widget.layerName : '${widget.cartName} · ${widget.layerName}',
                       style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                     ),
                   ),

@@ -9,10 +9,12 @@ final inventoryServiceProvider = Provider<InventoryApiService>((ref) {
 });
 
 final inventoryFilterProvider = StateProvider<InventoryFilter>((ref) => InventoryFilter.all);
+final inventoryLayerFilterProvider = StateProvider<int?>((ref) => null);
 
 final inventoryListProvider = FutureProvider<List<InventoryItem>>((ref) async {
   final filter = ref.watch(inventoryFilterProvider);
-  return ref.watch(inventoryServiceProvider).fetchList(filter: filter);
+  final layerId = ref.watch(inventoryLayerFilterProvider);
+  return ref.watch(inventoryServiceProvider).fetchList(filter: filter, layerId: layerId);
 });
 
 final inventoryDetailProvider = FutureProvider.family<InventoryItem?, int>((ref, id) async {

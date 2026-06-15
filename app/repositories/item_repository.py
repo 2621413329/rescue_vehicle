@@ -1,5 +1,6 @@
 from sqlalchemy import select
 
+from app.models.inventory import Inventory
 from app.models.item import Item
 from app.repositories.base import BaseRepository
 
@@ -35,3 +36,11 @@ class ItemRepository(BaseRepository[Item]):
     def count_enabled(self) -> int:
         stmt = select(Item).where(Item.is_deleted.is_(False), Item.is_enabled.is_(True))
         return len(list(self.db.scalars(stmt).all()))
+
+    def has_inventory(self, item_id: int) -> bool:
+        stmt = (
+            select(Inventory.id)
+            .where(Inventory.item_id == item_id, Inventory.is_deleted.is_(False))
+            .limit(1)
+        )
+        return self.db.scalar(stmt) is not None

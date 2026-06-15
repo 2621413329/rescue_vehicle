@@ -35,7 +35,7 @@ def create_cart(
 def list_carts(
     query: CrashCartQuery = Depends(),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_permission(Permission.CART_MANAGE)),
+    current_user: User = Depends(require_permission(Permission.INVENTORY_READ)),
 ):
     return CrashCartService(db).list_carts(query, current_user)
 

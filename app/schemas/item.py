@@ -7,7 +7,7 @@ from app.schemas.common import ORMModel, PageParams
 
 
 class ItemCreate(BaseModel):
-    item_code: str = Field(min_length=1, max_length=64)
+    item_code: str | None = Field(default=None, max_length=64)
     item_name: str = Field(min_length=1, max_length=128)
     item_type: ItemType
     specification: str | None = None
@@ -52,6 +52,8 @@ class ItemOut(ORMModel):
     is_enabled: bool
     created_at: datetime
     updated_at: datetime
+    operator_name: str | None = None
+    in_use: bool = False
 
 
 class ItemQuery(PageParams):

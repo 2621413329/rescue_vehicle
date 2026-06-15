@@ -29,15 +29,14 @@ class InventoryApiService {
         managerName: json['manager_name'] as String?,
       );
 
-  Future<List<InventoryItem>> fetchList({InventoryFilter filter = InventoryFilter.all}) async {
+  Future<List<InventoryItem>> fetchList({InventoryFilter filter = InventoryFilter.all, int? layerId}) async {
     final query = <String, dynamic>{'page': 1, 'page_size': 100};
+    if (layerId != null) query['layer_id'] = layerId;
     switch (filter) {
       case InventoryFilter.nearExpiry:
         query['is_near_expiry'] = true;
       case InventoryFilter.expired:
         query['is_expired'] = true;
-      case InventoryFilter.lowStock:
-        query['is_low_stock'] = true;
       default:
         break;
     }
@@ -63,7 +62,7 @@ class InventoryApiService {
   }
 
   Future<List<Map<String, dynamic>>> fetchItems() async {
-    final data = await _api.get('/items', query: {'page': 1, 'page_size': 200});
+    final data = await _api.get('/items', query: {'page': 1, 'page_size': 100, 'is_enabled': true});
     return (data['items'] as List<dynamic>? ?? []).cast<Map<String, dynamic>>();
   }
 

@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_colors.dart';
-import '../../../shared/widgets/cart_risk_card.dart';
 import '../../../shared/widgets/section_header.dart';
 import '../../../shared/widgets/task_card.dart';
 import '../models/dashboard_models.dart';
@@ -28,7 +27,6 @@ class DashboardPage extends ConsumerWidget {
             SliverToBoxAdapter(child: _ExpiryForecastSection(forecasts: data.expiryForecasts)),
             SliverToBoxAdapter(child: _ReplacePlanSection(plans: data.replacePlans)),
             SliverToBoxAdapter(child: _LabelCenterSection(data: data)),
-            SliverToBoxAdapter(child: _RiskRankSection(risks: data.cartRisks)),
             SliverToBoxAdapter(child: _RecentAuditSection(audits: data.recentAudits)),
             const SliverToBoxAdapter(child: SizedBox(height: 24)),
           ],
@@ -71,9 +69,9 @@ class _Header extends StatelessWidget {
             const SizedBox(height: 16),
             Row(
               children: [
-                _headerStat('今日巡检', '${data.todayTasks.completedInspection}/${data.todayTasks.pendingInspection + data.todayTasks.completedInspection}'),
+                _headerStat('待更换', '${data.todayTasks.pendingReplace}'),
                 const SizedBox(width: 24),
-                _headerStat('待处理', '${data.todayTasks.pendingReplace + data.todayTasks.pendingLabels + data.todayTasks.lowStock}'),
+                _headerStat('待贴标签', '${data.todayTasks.pendingLabels}'),
               ],
             ),
           ],
@@ -114,23 +112,16 @@ class _TodayTasksSection extends StatelessWidget {
             crossAxisSpacing: 12,
             childAspectRatio: 1.35,
             children: [
-              TaskCard(icon: Icons.fact_check_outlined, label: '待巡检', count: t.pendingInspection, color: AppColors.primary, onTap: () => context.push('/inspection')),
               TaskCard(icon: Icons.sync_alt, label: '待更换', count: t.pendingReplace, color: AppColors.danger, onTap: () => context.push('/warning')),
               TaskCard(icon: Icons.label_outline, label: '待贴标签', count: t.pendingLabels, color: AppColors.warning, onTap: () => context.push('/label')),
-              TaskCard(icon: Icons.warning_amber_outlined, label: '库存不足', count: t.lowStock, color: AppColors.lowStock, onTap: () => context.push('/inventory?filter=low_stock')),
             ],
           ),
         ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-          child: Row(
-            children: [
-              Expanded(child: _miniWorkCard('待确认库存', t.pendingConfirm, AppColors.primary)),
-              const SizedBox(width: 12),
-              Expanded(child: _miniWorkCard('待处理异常', t.pendingExceptions, AppColors.danger)),
-            ],
+        if (t.pendingExceptions > 0)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: _miniWorkCard('待处理异常', t.pendingExceptions, AppColors.danger),
           ),
-        ),
       ],
     );
   }
@@ -163,18 +154,16 @@ class _HealthBoardSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionHeader(title: '抢救车健康看板'),
+        const SectionHeader(title: '库存健康看板'),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(
             children: [
-              _statCard('抢救车', board.cartCount, AppColors.primary),
               _statCard('库存总数', board.inventoryCount, AppColors.textPrimary),
               _statCard('正常', board.normalCount, AppColors.normal),
               _statCard('临期', board.nearExpiryCount, AppColors.warning),
               _statCard('过期', board.expiredCount, AppColors.danger),
-              _statCard('不足', board.lowStockCount, AppColors.lowStock),
             ],
           ),
         ),
@@ -360,41 +349,6 @@ class _LabelCenterSection extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _RiskRankSection extends StatelessWidget {
-  const _RiskRankSection({required this.risks});
-  final List<CartRiskRank> risks;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SectionHeader(title: '抢救车风险排行', actionLabel: '全部', onAction: () => context.push('/cart/risk')),
-        ListView.separated(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          itemCount: risks.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 10),
-          itemBuilder: (context, i) {
-            final r = risks[i];
-            return CartRiskCard(
-              rank: r.rank,
-              cartName: r.cartName,
-              location: r.location,
-              riskScore: r.riskScore,
-              expiredCount: r.expiredCount,
-              nearExpiryCount: r.nearExpiryCount,
-              lowStockCount: r.lowStockCount,
-              onTap: () => context.push('/cart/${r.cartId}'),
-            );
-          },
-        ),
-      ],
     );
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/providers/default_cart_provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../shared/widgets/audit_timeline.dart';
 import '../../../shared/widgets/inventory_card.dart';
@@ -16,7 +17,6 @@ class InventoryListPage extends ConsumerWidget {
   static InventoryFilter? _parseFilter(String? f) => switch (f) {
         'near_expiry' => InventoryFilter.nearExpiry,
         'expired' => InventoryFilter.expired,
-        'low_stock' => InventoryFilter.lowStock,
         'need_label' => InventoryFilter.needLabel,
         'need_replace' => InventoryFilter.needReplace,
         _ => null,
@@ -31,6 +31,8 @@ class InventoryListPage extends ConsumerWidget {
       });
     }
     final filter = ref.watch(inventoryFilterProvider);
+    final layerId = ref.watch(inventoryLayerFilterProvider);
+    final layersAsync = ref.watch(cartLayersProvider);
     final async = ref.watch(inventoryListProvider);
 
     return Scaffold(
@@ -43,6 +45,15 @@ class InventoryListPage extends ConsumerWidget {
       body: Column(
         children: [
           _FilterBar(current: filter, onChanged: (f) => ref.read(inventoryFilterProvider.notifier).state = f),
+          layersAsync.when(
+            loading: () => const SizedBox.shrink(),
+            error: (_, __) => const SizedBox.shrink(),
+            data: (layers) => _LayerFilterBar(
+              layers: layers,
+              currentLayerId: layerId,
+              onChanged: (id) => ref.read(inventoryLayerFilterProvider.notifier).state = id,
+            ),
+          ),
           Expanded(
             child: async.when(
               loading: () => const Center(child: CircularProgressIndicator()),
@@ -58,7 +69,7 @@ class InventoryListPage extends ConsumerWidget {
                   unit: items[i].unit,
                   expiryDate: items[i].expiryDate,
                   remainingDays: items[i].remainingDays,
-                  cartName: items[i].cartName,
+                  cartName: '',
                   layerName: items[i].layerName,
                   riskLevel: items[i].riskLevel,
                   labelStatus: items[i].labelStatus,
@@ -84,7 +95,6 @@ class _FilterBar extends StatelessWidget {
     (InventoryFilter.all, '全部'),
     (InventoryFilter.nearExpiry, '临期'),
     (InventoryFilter.expired, '过期'),
-    (InventoryFilter.lowStock, '不足'),
     (InventoryFilter.needLabel, '待标签'),
     (InventoryFilter.needReplace, '待更换'),
   ];
@@ -108,6 +118,55 @@ class _FilterBar extends StatelessWidget {
             ),
           );
         }).toList(),
+      ),
+    );
+  }
+}
+
+class _LayerFilterBar extends StatelessWidget {
+  const _LayerFilterBar({
+    required this.layers,
+    required this.currentLayerId,
+    required this.onChanged,
+  });
+
+  final List<Map<String, dynamic>> layers;
+  final int? currentLayerId;
+  final ValueChanged<int?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    if (layers.isEmpty) return const SizedBox.shrink();
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: Row(
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: FilterChip(
+              label: const Text('全部层级'),
+              selected: currentLayerId == null,
+              onSelected: (_) => onChanged(null),
+              selectedColor: AppColors.primaryLight,
+              checkmarkColor: AppColors.primary,
+            ),
+          ),
+          ...layers.map((layer) {
+            final id = layer['id'] as int;
+            final name = layer['layer_name'] as String? ?? '层级$id';
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: FilterChip(
+                label: Text(name),
+                selected: currentLayerId == id,
+                onSelected: (_) => onChanged(id),
+                selectedColor: AppColors.primaryLight,
+                checkmarkColor: AppColors.primary,
+              ),
+            );
+          }),
+        ],
       ),
     );
   }
@@ -146,7 +205,7 @@ class InventoryDetailPage extends ConsumerWidget {
                 unit: item.unit,
                 expiryDate: item.expiryDate,
                 remainingDays: item.remainingDays,
-                cartName: item.cartName,
+                cartName: '',
                 layerName: item.layerName,
                 riskLevel: item.riskLevel,
                 labelStatus: item.labelStatus,
@@ -325,7 +384,6 @@ class _InventoryCreatePageState extends ConsumerState<InventoryCreatePage> {
   bool _loading = true;
   bool _submitting = false;
   List<Map<String, dynamic>> _items = [];
-  List<Map<String, dynamic>> _carts = [];
   List<Map<String, dynamic>> _layers = [];
 
   @override
@@ -345,12 +403,14 @@ class _InventoryCreatePageState extends ConsumerState<InventoryCreatePage> {
 
   Future<void> _loadOptions() async {
     try {
+      final cart = await ref.read(defaultCartProvider.future);
       final svc = ref.read(inventoryServiceProvider);
       final items = await svc.fetchItems();
-      final carts = await svc.fetchCarts();
+      final layers = await svc.fetchLayers(cart['id'] as int);
       setState(() {
+        _cartId = cart['id'] as int;
         _items = items;
-        _carts = carts;
+        _layers = layers;
         _loading = false;
       });
     } catch (e) {
@@ -361,22 +421,9 @@ class _InventoryCreatePageState extends ConsumerState<InventoryCreatePage> {
     }
   }
 
-  Future<void> _onCartChanged(int? cartId) async {
-    setState(() {
-      _cartId = cartId;
-      _layerId = null;
-      _layers = [];
-    });
-    if (cartId == null) return;
-    try {
-      final layers = await ref.read(inventoryServiceProvider).fetchLayers(cartId);
-      setState(() => _layers = layers);
-    } catch (_) {}
-  }
-
   Future<void> _submit() async {
     if (_itemId == null || _cartId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('请选择药品和抢救车')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('请选择药品')));
       return;
     }
     final qty = num.tryParse(_quantity.text.trim());
@@ -426,15 +473,6 @@ class _InventoryCreatePageState extends ConsumerState<InventoryCreatePage> {
                 .map((i) => DropdownMenuItem(value: i['id'] as int, child: Text(i['item_name'] as String? ?? '')))
                 .toList(),
             onChanged: (v) => setState(() => _itemId = v),
-          ),
-          const SizedBox(height: 12),
-          DropdownButtonFormField<int>(
-            value: _cartId,
-            decoration: const InputDecoration(labelText: '抢救车'),
-            items: _carts
-                .map((c) => DropdownMenuItem(value: c['id'] as int, child: Text(c['cart_name'] as String? ?? '')))
-                .toList(),
-            onChanged: _onCartChanged,
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<int>(

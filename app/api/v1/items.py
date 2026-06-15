@@ -51,6 +51,16 @@ def update_item(
     return ItemService(db).update(item_id, data, current_user, get_client_ip(request))
 
 
+@router.post("/{item_id}/disable", response_model=ItemOut)
+def disable_item(
+    item_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission(Permission.ITEM_MANAGE)),
+):
+    return ItemService(db).disable(item_id, current_user, get_client_ip(request))
+
+
 @router.delete("/{item_id}", response_model=MessageResponse)
 def delete_item(
     item_id: int,

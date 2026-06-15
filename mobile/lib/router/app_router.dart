@@ -10,6 +10,7 @@ import '../modules/dashboard/pages/dashboard_page.dart';
 import '../modules/inspection/pages/inspection_pages.dart';
 import '../modules/inventory/pages/inventory_pages.dart';
 import '../modules/label/pages/label_pages.dart';
+import '../modules/item/pages/item_pages.dart';
 import '../modules/profile/pages/profile_page.dart';
 import '../modules/warning/pages/warning_center_page.dart';
 import 'main_shell.dart';
@@ -17,7 +18,6 @@ import 'main_shell.dart';
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorDashboard = GlobalKey<NavigatorState>(debugLabel: 'dashboard');
 final _shellNavigatorInventory = GlobalKey<NavigatorState>(debugLabel: 'inventory');
-final _shellNavigatorInspection = GlobalKey<NavigatorState>(debugLabel: 'inspection');
 final _shellNavigatorWarning = GlobalKey<NavigatorState>(debugLabel: 'warning');
 final _shellNavigatorProfile = GlobalKey<NavigatorState>(debugLabel: 'profile');
 
@@ -52,10 +52,6 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
           StatefulShellBranch(
-            navigatorKey: _shellNavigatorInspection,
-            routes: [GoRoute(path: '/inspection', builder: (_, __) => const InspectionTaskPage())],
-          ),
-          StatefulShellBranch(
             navigatorKey: _shellNavigatorWarning,
             routes: [GoRoute(path: '/warning', builder: (_, __) => const WarningCenterPage())],
           ),
@@ -64,6 +60,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [GoRoute(path: '/profile', builder: (_, __) => const ProfilePage())],
           ),
         ],
+      ),
+      GoRoute(path: '/items', builder: (_, __) => const ItemListPage()),
+      GoRoute(path: '/items/create', builder: (_, __) => const ItemEditPage()),
+      GoRoute(
+        path: '/items/:id/edit',
+        builder: (_, state) => ItemEditPage(id: int.parse(state.pathParameters['id']!)),
       ),
       GoRoute(path: '/inventory/create', builder: (_, __) => const InventoryCreatePage()),
       GoRoute(
@@ -78,6 +80,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/inventory/:id/history',
         builder: (_, state) => InventoryHistoryPage(id: int.parse(state.pathParameters['id']!)),
       ),
+      GoRoute(path: '/inspection', builder: (_, __) => const InspectionTaskPage()),
       GoRoute(
         path: '/inspection/execute/:cartId',
         builder: (_, state) => InspectionExecutePage(cartId: int.parse(state.pathParameters['cartId']!)),

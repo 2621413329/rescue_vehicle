@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import time
+
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
@@ -19,12 +21,42 @@ class ItemService:
         self.repo = ItemRepository(db)
         self.reason_repo = OperationReasonRepository(db)
 
+    def _to_out(self, item: Item) -> ItemOut:
+        operator_name = None
+        if item.updated_by:
+            operator = self.db.get(User, item.updated_by)
+            operator_name = operator.real_name if operator else None
+        return ItemOut(
+            id=item.id,
+            item_code=item.item_code,
+            item_name=item.item_name,
+            item_type=item.item_type,
+            specification=item.specification,
+            manufacturer=item.manufacturer,
+            description=item.description,
+            usage_instruction=item.usage_instruction,
+            storage_requirement=item.storage_requirement,
+            warning_days=item.warning_days,
+            default_warning_tag=item.default_warning_tag,
+            is_enabled=item.is_enabled,
+            created_at=item.created_at,
+            updated_at=item.updated_at,
+            operator_name=operator_name,
+            in_use=self.repo.has_inventory(item.id),
+        )
+
+    def _generate_item_code(self) -> str:
+        return f"IT{int(time.time() * 1000)}"
+
     def create(
         self, data: ItemCreate, operator: User, ip_address: str | None = None
     ) -> ItemOut:
-        if self.repo.get_by_code(data.item_code):
+        item_code = (data.item_code or "").strip() or self._generate_item_code()
+        if self.repo.get_by_code(item_code):
             raise HTTPException(status_code=400, detail="物资编码已存在")
-        item = Item(**data.model_dump(), created_by=operator.id, updated_by=operator.id)
+        payload = data.model_dump()
+        payload["item_code"] = item_code
+        item = Item(**payload, created_by=operator.id, updated_by=operator.id)
         self.db.add(item)
         self.db.flush()
         AuditService.log_model_change(
@@ -38,7 +70,7 @@ class ItemService:
         )
         self.db.commit()
         self.db.refresh(item)
-        return ItemOut.model_validate(item)
+        return self._to_out(item)
 
     def update(
         self, item_id: int, data: ItemUpdate, operator: User, ip_address: str | None = None
@@ -52,6 +84,9 @@ class ItemService:
 
         if warning_changed and not operation_reason:
             raise HTTPException(status_code=400, detail="修改预警天数必须填写操作原因")
+
+        if update_data.get("is_enabled") is False and item.is_enabled and self.repo.has_inventory(item.id):
+            raise HTTPException(status_code=400, detail="该药品已被库存使用，不可停用")
 
         old = Item(
             id=item.id,
@@ -92,7 +127,12 @@ class ItemService:
             )
         self.db.commit()
         self.db.refresh(item)
-        return ItemOut.model_validate(item)
+        return self._to_out(item)
+
+    def disable(
+        self, item_id: int, operator: User, ip_address: str | None = None
+    ) -> ItemOut:
+        return self.update(item_id, ItemUpdate(is_enabled=False), operator, ip_address)
 
     def delete(
         self, item_id: int, operator: User, operation_reason: str, ip_address: str | None = None
@@ -127,7 +167,7 @@ class ItemService:
         item = self.repo.get_by_id(item_id)
         if not item:
             raise HTTPException(status_code=404, detail="物资不存在")
-        return ItemOut.model_validate(item)
+        return self._to_out(item)
 
     def list(self, query: ItemQuery) -> PageResult[ItemOut]:
         items, total = self.repo.list_items(
@@ -138,7 +178,7 @@ class ItemService:
             is_enabled=query.is_enabled,
         )
         return PageResult(
-            items=[ItemOut.model_validate(i) for i in items],
+            items=[self._to_out(i) for i in items],
             total=total,
             page=query.page,
             page_size=query.page_size,

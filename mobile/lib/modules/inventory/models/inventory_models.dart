@@ -1,6 +1,6 @@
 import '../../../core/constants/app_colors.dart';
 
-enum InventoryFilter { all, nearExpiry, expired, lowStock, needLabel, needReplace }
+enum InventoryFilter { all, nearExpiry, expired, needLabel, needReplace }
 
 class InventoryItem {
   const InventoryItem({

@@ -53,9 +53,7 @@ class WarningCenterPage extends ConsumerWidget {
       crossAxisSpacing: 10,
       childAspectRatio: 2.2,
       children: [
-        _catTile('待巡检', count(WarningCategory.maintenance), AppColors.primary, Icons.fact_check),
-        _catTile('待更换', count(WarningCategory.nearExpiry) + count(WarningCategory.expired), AppColors.danger, Icons.sync),
-        _catTile('待补货', count(WarningCategory.lowStock), AppColors.lowStock, Icons.inventory),
+        _catTile('待更换', count(WarningCategory.replace) + count(WarningCategory.expired) + count(WarningCategory.nearExpiry), AppColors.danger, Icons.sync),
         _catTile('待贴标签', count(WarningCategory.labelUpdate), AppColors.warning, Icons.label),
       ],
     );

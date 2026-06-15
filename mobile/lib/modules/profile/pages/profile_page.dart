@@ -57,15 +57,9 @@ class ProfilePage extends ConsumerWidget {
             statsAsync.when(
               loading: () => const SizedBox.shrink(),
               error: (_, __) => const SizedBox.shrink(),
-              data: (stats) => Column(
-                children: [
-                  _statRow('今日工作量', stats['today_workload'] as String? ?? ''),
-                  _statRow('本月巡检', '${stats['month_inspections']}次'),
-                  _statRow('本月处理库存', '${stats['month_inventory_ops']}项'),
-                ],
-              ),
+              data: (stats) => _statRow('本月处理库存', '${stats['month_inventory_ops']}项'),
             ),
-            _menuTile(context, Icons.local_hospital_outlined, '抢救车管理', '/cart'),
+            _menuTile(context, Icons.medication_outlined, '药品管理', '/items'),
             _menuTile(context, Icons.label_outline, '标签中心', '/label'),
             _menuTile(context, Icons.history, '操作日志', '/audit'),
             const SizedBox(height: 24),

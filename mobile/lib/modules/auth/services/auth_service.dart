@@ -17,13 +17,19 @@ class AuthService {
   final TokenStorage _storage;
 
   Future<void> login(String username, String password) async {
+    // FastAPI OAuth2PasswordRequestForm 要求 x-www-form-urlencoded，不能用 JSON
+    final body =
+        'username=${Uri.encodeQueryComponent(username)}&password=${Uri.encodeQueryComponent(password)}';
     final res = await _dio.post<Map<String, dynamic>>(
       '/auth/login',
-      data: {'username': username, 'password': password},
-      options: Options(contentType: Headers.formUrlEncodedContentType),
+      data: body,
+      options: Options(
+        contentType: Headers.formUrlEncodedContentType,
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      ),
     );
     final token = res.data?['access_token'] as String?;
-    if (token == null || token.isEmpty) throw Exception('登录失败');
+    if (token == null || token.isEmpty) throw Exception('登录失败：未返回 token');
     await _storage.saveToken(token);
   }
 

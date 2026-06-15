@@ -12,7 +12,7 @@ abstract final class EnvConfig {
   static const apiBaseUrlFromDefine = String.fromEnvironment('API_BASE_URL', defaultValue: '');
 
   static Future<void> load() async {
-    if (apiBaseUrlFromDefine.trim().isNotEmpty) return;
+    if (dotenv.isInitialized) return;
     try {
       await dotenv.load(fileName: envFile);
     } catch (_) {
@@ -20,11 +20,13 @@ abstract final class EnvConfig {
     }
   }
 
+  static String? _env(String key) => dotenv.isInitialized ? dotenv.env[key] : null;
+
   static String get apiBaseUrl {
     final fromDefine = apiBaseUrlFromDefine.trim();
     if (fromDefine.isNotEmpty) return _normalizeUrl(fromDefine);
 
-    final url = dotenv.env['API_BASE_URL']?.trim();
+    final url = _env('API_BASE_URL')?.trim();
     if (url != null && url.isNotEmpty) return _normalizeUrl(url);
     return _fallbackBaseUrl;
   }
@@ -33,10 +35,10 @@ abstract final class EnvConfig {
       url.endsWith('/') ? url.substring(0, url.length - 1) : url;
 
   static Duration get connectTimeout => Duration(
-        seconds: int.tryParse(dotenv.env['API_CONNECT_TIMEOUT'] ?? '') ?? 15,
+        seconds: int.tryParse(_env('API_CONNECT_TIMEOUT') ?? '') ?? 15,
       );
 
   static Duration get receiveTimeout => Duration(
-        seconds: int.tryParse(dotenv.env['API_RECEIVE_TIMEOUT'] ?? '') ?? 15,
+        seconds: int.tryParse(_env('API_RECEIVE_TIMEOUT') ?? '') ?? 15,
       );
 }

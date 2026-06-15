@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:dio/dio.dart';
+
+import '../../../core/config/env_config.dart';
 import '../../../core/constants/app_colors.dart';
 import '../services/auth_service.dart';
 
@@ -34,8 +37,21 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       await ref.read(authServiceProvider).login(_username.text.trim(), _password.text);
       ref.read(authStateProvider.notifier).state = true;
       if (mounted) context.go('/');
+    } on DioException catch (e) {
+      final status = e.response?.statusCode;
+      final detail = e.response?.data;
+      final msg = detail is Map ? detail['detail']?.toString() : null;
+      if (status == 401) {
+        setState(() => _error = '用户名或密码错误（默认账号 admin / admin）');
+      } else if (status == 422) {
+        setState(() => _error = '请求格式错误，请重新安装最新 APK');
+      } else if (e.type == DioExceptionType.connectionError) {
+        setState(() => _error = '无法连接服务器\n${EnvConfig.apiBaseUrl}');
+      } else {
+        setState(() => _error = '登录失败（$status）${msg != null ? '：$msg' : ''}');
+      }
     } catch (e) {
-      setState(() => _error = '登录失败，请检查用户名和密码');
+      setState(() => _error = '登录失败：$e');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -55,6 +71,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               const SizedBox(height: 16),
               const Text('抢救车效期管理', textAlign: TextAlign.center, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
               const Text('任务驱动 · 风险预警 · 效期追溯', textAlign: TextAlign.center, style: TextStyle(color: AppColors.textSecondary)),
+              const SizedBox(height: 8),
+              Text(
+                'API: ${EnvConfig.apiBaseUrl}',
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+              ),
               const SizedBox(height: 48),
               TextField(controller: _username, decoration: const InputDecoration(labelText: '用户名', prefixIcon: Icon(Icons.person_outline))),
               const SizedBox(height: 16),

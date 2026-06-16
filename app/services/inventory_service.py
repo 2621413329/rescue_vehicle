@@ -316,6 +316,36 @@ class InventoryService:
                 operator_name=operator.real_name,
                 ip_address=ip_address,
             )
+        elif action == "LABEL_UNDONE":
+            reason = remark or "任务通知撤销：恢复为待贴标签"
+            inventory.task_label_done = False
+            inventory.task_label_done_at = None
+            inventory.updated_by = operator.id
+            AuditService.log(
+                self.db,
+                module="inventory",
+                business_id=inventory_id,
+                operation_type=OperationType.UPDATE,
+                new_data={"remark": reason, "task_label_done": False},
+                operator_id=operator.id,
+                operator_name=operator.real_name,
+                ip_address=ip_address,
+            )
+        elif action == "REPLACE_UNDONE":
+            reason = remark or "任务通知撤销：恢复为待更换"
+            inventory.task_replace_done = False
+            inventory.task_replace_done_at = None
+            inventory.updated_by = operator.id
+            AuditService.log(
+                self.db,
+                module="inventory",
+                business_id=inventory_id,
+                operation_type=OperationType.UPDATE,
+                new_data={"remark": reason, "task_replace_done": False},
+                operator_id=operator.id,
+                operator_name=operator.real_name,
+                ip_address=ip_address,
+            )
         else:
             raise HTTPException(status_code=400, detail="不支持的操作类型")
 

@@ -57,6 +57,10 @@ class _MainShellState extends ConsumerState<MainShell> with WidgetsBindingObserv
       if (!mounted) return;
       await showDailyTaskSummaryDialog(context, stats: stats, taskCount: tasks.length);
       await service.markShownToday();
+      await service.showDailySummaryNotification(
+        replacePending: stats['replacePending'] ?? 0,
+        labelPending: stats['labelPending'] ?? 0,
+      );
     } catch (_) {
       // 网络异常时跳过，下次再试
     }

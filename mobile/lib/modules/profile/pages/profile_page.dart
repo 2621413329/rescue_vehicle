@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/services/task_reminder_service.dart';
+import '../../../core/utils/time_format.dart';
 import '../../auth/services/auth_service.dart';
 
 final profileStatsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
@@ -28,6 +29,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   bool _reminderEnabled = true;
   TimeOfDay _reminderTime = const TimeOfDay(hour: 10, minute: 0);
   bool _loaded = false;
+  bool _savingReminder = false;
 
   @override
   void initState() {
@@ -49,25 +51,47 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   }
 
   Future<void> _pickReminderTime() async {
-    final picked = await showTimePicker(context: context, initialTime: _reminderTime);
+    final picked = await pickTimeZh(context, _reminderTime);
     if (picked == null) return;
+    setState(() => _savingReminder = true);
     try {
       await TaskReminderService.instance.setReminderTime(picked);
       if (!mounted) return;
       setState(() => _reminderTime = picked);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已设置每日 ${_formatTime(picked)} 提醒')),
+        SnackBar(content: Text('已设置每日 ${formatTimeZh(picked)} 提醒')),
       );
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('提醒时间保存失败，请检查通知权限后重试')),
       );
+    } finally {
+      if (mounted) setState(() => _savingReminder = false);
     }
   }
 
-  String _formatTime(TimeOfDay time) =>
-      '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+  Future<void> _toggleReminder(bool value) async {
+    setState(() {
+      _reminderEnabled = value;
+      _savingReminder = true;
+    });
+    try {
+      await TaskReminderService.instance.setEnabled(value);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(value ? '已开启每日任务提醒' : '已关闭每日任务提醒')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _reminderEnabled = !value);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('设置失败，请检查通知权限后重试')),
+      );
+    } finally {
+      if (mounted) setState(() => _savingReminder = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -89,7 +113,10 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                     CircleAvatar(
                       radius: 32,
                       backgroundColor: AppColors.primaryLight,
-                      child: Text('${(user['real_name'] as String? ?? '?')[0]}', style: const TextStyle(fontSize: 24, color: AppColors.primary)),
+                      child: Text(
+                        (user['real_name'] as String? ?? '?')[0],
+                        style: const TextStyle(fontSize: 24, color: AppColors.primary),
+                      ),
                     ),
                     const SizedBox(width: 16),
                     Column(
@@ -114,12 +141,9 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                 margin: const EdgeInsets.only(bottom: 8),
                 child: SwitchListTile(
                   title: const Text('每日任务提醒'),
-                  subtitle: Text('每天 ${_formatTime(_reminderTime)} 弹窗汇总待办'),
+                  subtitle: Text('每天 ${formatTimeZh(_reminderTime)} 弹窗汇总待办'),
                   value: _reminderEnabled,
-                  onChanged: (v) async {
-                    await TaskReminderService.instance.setEnabled(v);
-                    setState(() => _reminderEnabled = v);
-                  },
+                  onChanged: _savingReminder ? null : _toggleReminder,
                 ),
               ),
               Card(
@@ -127,15 +151,16 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                 child: ListTile(
                   leading: const Icon(Icons.schedule, color: AppColors.primary),
                   title: const Text('提醒时间'),
-                  subtitle: Text(_formatTime(_reminderTime)),
-                  trailing: const Icon(Icons.chevron_right),
-                  enabled: _reminderEnabled,
-                  onTap: _reminderEnabled ? _pickReminderTime : null,
+                  subtitle: Text(formatTimeZh(_reminderTime)),
+                  trailing: _savingReminder
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.chevron_right),
+                  enabled: _reminderEnabled && !_savingReminder,
+                  onTap: _reminderEnabled && !_savingReminder ? _pickReminderTime : null,
                 ),
               ),
             ],
             _menuTile(context, Icons.medication_outlined, '药品管理', '/items'),
-            _menuTile(context, Icons.label_outline, '标签中心', '/label'),
             _menuTile(context, Icons.history, '操作日志', '/audit'),
             const SizedBox(height: 24),
             OutlinedButton(

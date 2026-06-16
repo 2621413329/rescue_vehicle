@@ -26,9 +26,24 @@ class ExpiryDateField extends StatelessWidget {
     }
   }
 
-  void _setDate(BuildContext context, DateTime date) {
+  void _applyDate(DateTime date) {
     controller.text = DateFormat('yyyy-MM-dd').format(date);
-    Navigator.pop(context);
+  }
+
+  Future<void> _openCalendar(BuildContext context, DateTime initial) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 3650)),
+      locale: const Locale('zh', 'CN'),
+      helpText: '选择$label',
+      cancelText: '取消',
+      confirmText: '确定',
+    );
+    if (picked != null) {
+      _applyDate(picked);
+    }
   }
 
   Future<void> _openPicker(BuildContext context) async {
@@ -53,22 +68,19 @@ class ExpiryDateField extends StatelessWidget {
                   final text = DateFormat('yyyy-MM-dd').format(target);
                   return ActionChip(
                     label: Text('$days天 ($text)'),
-                    onPressed: () => _setDate(ctx, target),
+                    onPressed: () {
+                      _applyDate(target);
+                      Navigator.pop(ctx);
+                    },
                   );
                 }).toList(),
               ),
               const SizedBox(height: 12),
               OutlinedButton.icon(
                 onPressed: () async {
-                  final picked = await showDatePicker(
-                    context: ctx,
-                    initialDate: initial,
-                    firstDate: DateTime.now(),
-                    lastDate: DateTime.now().add(const Duration(days: 3650)),
-                    locale: const Locale('zh', 'CN'),
-                  );
-                  if (picked != null && ctx.mounted) {
-                    _setDate(ctx, picked);
+                  Navigator.pop(ctx);
+                  if (context.mounted) {
+                    await _openCalendar(context, initial);
                   }
                 },
                 icon: const Icon(Icons.calendar_today_outlined, size: 18),

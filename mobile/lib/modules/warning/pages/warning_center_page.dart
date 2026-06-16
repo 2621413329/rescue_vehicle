@@ -13,33 +13,58 @@ class WarningCenterPage extends ConsumerWidget {
 
   List<SwipeAction> _actions(BuildContext context, WidgetRef ref, WarningTask task) {
     final actions = <SwipeAction>[];
-    if (task.needsReplace && !task.taskReplaceDone) {
-      actions.add(
-        SwipeAction(
-          label: '已更换',
-          color: AppColors.normal,
-          icon: Icons.check_circle_outline,
-          onTap: () => performReplaceTask(
-            context,
-            ref,
-            inventoryId: task.inventoryId,
-            itemName: task.itemName,
-            batchNo: task.batchNo,
-            quantity: task.quantity,
+
+    if (task.needsReplace) {
+      if (task.taskReplaceDone) {
+        actions.add(
+          SwipeAction(
+            label: '撤销更换',
+            color: AppColors.warning,
+            icon: Icons.undo,
+            onTap: () => performUndoReplaceTask(context, ref, inventoryId: task.inventoryId),
           ),
-        ),
-      );
+        );
+      } else {
+        actions.add(
+          SwipeAction(
+            label: '已更换',
+            color: AppColors.normal,
+            icon: Icons.check_circle_outline,
+            onTap: () => performReplaceTask(
+              context,
+              ref,
+              inventoryId: task.inventoryId,
+              itemName: task.itemName,
+              batchNo: task.batchNo,
+              quantity: task.quantity,
+            ),
+          ),
+        );
+      }
     }
-    if (task.needsLabel && !task.taskLabelDone) {
-      actions.add(
-        SwipeAction(
-          label: '已贴标签',
-          color: AppColors.primary,
-          icon: Icons.label_outline,
-          onTap: () => performLabelTask(context, ref, inventoryId: task.inventoryId, itemName: task.itemName),
-        ),
-      );
+
+    if (task.needsLabel) {
+      if (task.taskLabelDone) {
+        actions.add(
+          SwipeAction(
+            label: '撤销贴标',
+            color: AppColors.warning,
+            icon: Icons.undo,
+            onTap: () => performUndoLabelTask(context, ref, inventoryId: task.inventoryId),
+          ),
+        );
+      } else {
+        actions.add(
+          SwipeAction(
+            label: '已贴标签',
+            color: AppColors.primary,
+            icon: Icons.label_outline,
+            onTap: () => performLabelTask(context, ref, inventoryId: task.inventoryId, itemName: task.itemName),
+          ),
+        );
+      }
     }
+
     return actions;
   }
 
@@ -66,24 +91,28 @@ class WarningCenterPage extends ConsumerWidget {
               if (tasks.isEmpty)
                 const Center(child: Padding(padding: EdgeInsets.all(24), child: Text('暂无待处理任务')))
               else
-                ...tasks.map((t) => Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: SwipeActionTile(
-                        actions: _actions(context, ref, t),
-                        child: WarningCard(
-                          title: t.title,
-                          subtitle: t.subtitle,
-                          level: categoryLevel(t.category),
-                          time: t.time,
-                          statusBadges: TaskStatusBadges(
-                            replaceDone: t.taskReplaceDone,
-                            labelDone: t.taskLabelDone,
-                            needsReplace: t.needsReplace,
-                            needsLabel: t.needsLabel,
-                          ),
-                        ),
-                      ),
-                    )),
+                ...tasks.map((t) {
+                  final actions = _actions(context, ref, t);
+                  final card = WarningCard(
+                    title: t.title,
+                    subtitle: t.subtitle,
+                    level: categoryLevel(t.category),
+                    time: t.time,
+                    statusBadges: TaskStatusBadges(
+                      replaceDone: t.taskReplaceDone,
+                      labelDone: t.taskLabelDone,
+                      needsReplace: t.needsReplace,
+                      needsLabel: t.needsLabel,
+                    ),
+                  );
+                  if (actions.isEmpty) {
+                    return Padding(padding: const EdgeInsets.only(bottom: 10), child: card);
+                  }
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: SwipeActionTile(actions: actions, child: card),
+                  );
+                }),
             ],
           );
         },

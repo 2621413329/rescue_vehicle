@@ -59,3 +59,39 @@ Future<void> performLabelTask(
     }
   }
 }
+
+Future<void> performUndoReplaceTask(
+  BuildContext context,
+  WidgetRef ref, {
+  required int inventoryId,
+}) async {
+  try {
+    await ref.read(inventoryServiceProvider).markTaskAction(id: inventoryId, action: 'REPLACE_UNDONE');
+    refreshAfterInventoryTask(ref, inventoryId);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('已撤销更换，恢复为待更换')));
+    }
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('操作失败: $e')));
+    }
+  }
+}
+
+Future<void> performUndoLabelTask(
+  BuildContext context,
+  WidgetRef ref, {
+  required int inventoryId,
+}) async {
+  try {
+    await ref.read(inventoryServiceProvider).markTaskAction(id: inventoryId, action: 'LABEL_UNDONE');
+    refreshAfterInventoryTask(ref, inventoryId);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('已撤销贴标签，恢复为待贴标签')));
+    }
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('操作失败: $e')));
+    }
+  }
+}

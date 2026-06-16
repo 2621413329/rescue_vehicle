@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/constants/app_colors.dart';
 import '../../../core/providers/default_cart_provider.dart';
 import '../../../core/utils/task_actions.dart';
 import '../../../shared/widgets/audit_timeline.dart';
@@ -322,11 +324,16 @@ class _InventoryEditPageState extends ConsumerState<InventoryEditPage> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('请填写操作原因')));
       return;
     }
+    final qty = int.tryParse(_quantity.text.trim());
+    if (qty == null || qty < 0) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('数量必须为整数')));
+      return;
+    }
     setState(() => _submitting = true);
     try {
       await ref.read(inventoryServiceProvider).update(
             id: widget.id,
-            quantity: num.tryParse(_quantity.text.trim()),
+            quantity: qty,
             batchNo: _batchNo.text.trim().isEmpty ? null : _batchNo.text.trim(),
             expiryDate: _expiryDate.text.trim().isEmpty ? null : _expiryDate.text.trim(),
             operationReason: _reason.text.trim(),
@@ -352,7 +359,7 @@ class _InventoryEditPageState extends ConsumerState<InventoryEditPage> {
     detail.whenData((item) {
       if (item != null && !_initialized) {
         _initialized = true;
-        _quantity.text = '${item.quantity}';
+        _quantity.text = '${item.quantity.round()}';
         _batchNo.text = item.batchNo;
         _expiryDate.text = item.expiryDate.length >= 10 ? item.expiryDate.substring(0, 10) : item.expiryDate;
       }
@@ -363,16 +370,58 @@ class _InventoryEditPageState extends ConsumerState<InventoryEditPage> {
       body: detail.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('$e')),
-        data: (_) => ListView(
+        data: (item) => ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            TextField(controller: _quantity, decoration: const InputDecoration(labelText: '数量'), keyboardType: TextInputType.number),
-            const SizedBox(height: 12),
-            TextField(controller: _batchNo, decoration: const InputDecoration(labelText: '批号')),
-            const SizedBox(height: 12),
-            ExpiryDateField(controller: _expiryDate),
-            const SizedBox(height: 12),
-            TextField(controller: _reason, decoration: const InputDecoration(labelText: '操作原因（必填）')),
+            if (item != null)
+              Card(
+                margin: const EdgeInsets.only(bottom: 16),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(item.itemName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 6),
+                      Text('${item.cartName} · 层级 ${item.layerDisplay}', style: const TextStyle(color: AppColors.textSecondary)),
+                    ],
+                  ),
+                ),
+              ),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    TextField(
+                      controller: _quantity,
+                      decoration: const InputDecoration(
+                        labelText: '数量',
+                        hintText: '请输入整数',
+                        suffixText: '件',
+                      ),
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(controller: _batchNo, decoration: const InputDecoration(labelText: '批号')),
+                    const SizedBox(height: 16),
+                    ExpiryDateField(controller: _expiryDate),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: _reason,
+                      decoration: const InputDecoration(
+                        labelText: '操作原因',
+                        hintText: '请说明本次修改原因',
+                        helperText: '必填',
+                      ),
+                      maxLines: 2,
+                    ),
+                  ],
+                ),
+              ),
+            ),
             const SizedBox(height: 24),
             FilledButton(
               onPressed: _submitting ? null : _submit,
@@ -459,9 +508,9 @@ class _InventoryCreatePageState extends ConsumerState<InventoryCreatePage> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('请选择药品')));
       return;
     }
-    final qty = num.tryParse(_quantity.text.trim());
+    final qty = int.tryParse(_quantity.text.trim());
     if (qty == null || qty < 0) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('请输入有效数量')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('数量必须为整数')));
       return;
     }
     setState(() => _submitting = true);
@@ -519,7 +568,12 @@ class _InventoryCreatePageState extends ConsumerState<InventoryCreatePage> {
           const SizedBox(height: 12),
           TextField(controller: _batchNo, decoration: const InputDecoration(labelText: '批号')),
           const SizedBox(height: 12),
-          TextField(controller: _quantity, decoration: const InputDecoration(labelText: '数量'), keyboardType: TextInputType.number),
+          TextField(
+            controller: _quantity,
+            decoration: const InputDecoration(labelText: '数量', hintText: '请输入整数', suffixText: '件'),
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          ),
           const SizedBox(height: 12),
           ExpiryDateField(controller: _expiryDate, required: true),
           const SizedBox(height: 12),

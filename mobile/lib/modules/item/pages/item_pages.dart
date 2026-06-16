@@ -201,6 +201,7 @@ class _ItemEditPageState extends ConsumerState<ItemEditPage> {
   bool _submitting = false;
   MedicineItem? _item;
   int? _initialWarningDays;
+  bool _initialPermanent = false;
 
   bool get _isEdit => widget.id != null;
 
@@ -227,6 +228,7 @@ class _ItemEditPageState extends ConsumerState<ItemEditPage> {
       _type = item.itemType;
       _warningDays = item.warningDays;
       _initialWarningDays = item.warningDays;
+      _initialPermanent = item.isPermanent;
       _item = item;
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('加载失败: $e')));
@@ -245,14 +247,13 @@ class _ItemEditPageState extends ConsumerState<ItemEditPage> {
     try {
       final svc = ref.read(itemServiceProvider);
       if (_isEdit) {
+        final warningChanged = _initialWarningDays != _warningDays || _initialPermanent != WarningDays.isPermanent(_warningDays);
         await svc.update(
           id: widget.id!,
           itemName: name,
           itemType: _type,
           warningDays: _warningDays,
-          operationReason: _initialWarningDays != null && _initialWarningDays != _warningDays
-              ? '移动端修改预警期限'
-              : null,
+          operationReason: warningChanged ? '移动端修改预警期限' : null,
         );
       } else {
         await svc.create(itemName: name, itemType: _type, warningDays: _warningDays);
@@ -274,14 +275,74 @@ class _ItemEditPageState extends ConsumerState<ItemEditPage> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('该药品已被库存使用，不可停用，但可继续编辑')));
       return;
     }
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('确认停用'),
+        content: Text('确定停用「${_item!.itemName}」吗？停用后可删除该药品。'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('停用')),
+        ],
+      ),
+    );
+    if (ok != true) return;
     try {
       await ref.read(itemServiceProvider).disable(_item!.id);
+      final item = await ref.read(itemServiceProvider).fetchDetail(_item!.id);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('已停用')));
-        context.pop();
+        setState(() => _item = item);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('已停用，可进行删除操作')));
       }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('停用失败: $e')));
+    }
+  }
+
+  Future<void> _delete() async {
+    if (_item == null || _item!.isEnabled) return;
+    final reason = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('确认删除'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('确定删除「${_item!.itemName}」吗？此操作不可恢复。'),
+            const SizedBox(height: 12),
+            TextField(
+              controller: reason,
+              decoration: const InputDecoration(labelText: '操作原因', hintText: '请填写删除原因'),
+              maxLines: 2,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
+            onPressed: () => Navigator.pop(ctx, reason.text.trim().isNotEmpty),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) {
+      reason.dispose();
+      return;
+    }
+    final reasonText = reason.text.trim();
+    reason.dispose();
+    try {
+      await ref.read(itemServiceProvider).delete(id: _item!.id, operationReason: reasonText);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('已删除')));
+        context.pop();
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('删除失败: $e')));
     }
   }
 
@@ -299,6 +360,12 @@ class _ItemEditPageState extends ConsumerState<ItemEditPage> {
         actions: [
           if (_isEdit && (_item?.isEnabled ?? false))
             TextButton(onPressed: _disable, child: const Text('停用')),
+          if (_isEdit && _item != null && !_item!.isEnabled)
+            TextButton(
+              onPressed: _delete,
+              style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+              child: const Text('删除'),
+            ),
         ],
       ),
       body: ListView(
@@ -322,12 +389,15 @@ class _ItemEditPageState extends ConsumerState<ItemEditPage> {
           const Text('预警期限（天）', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
           const SizedBox(height: 10),
           SegmentChipBar(
-            selectedValue: '$_warningDays',
-            onSelected: (v) => setState(() => _warningDays = int.parse(v)),
+            selectedValue: WarningDays.isPermanent(_warningDays) ? 'permanent' : '$_warningDays',
+            onSelected: (v) => setState(() {
+              _warningDays = v == 'permanent' ? WarningDays.permanent : int.parse(v);
+            }),
             items: const [
               SegmentChipItem(value: '90', label: '90天'),
               SegmentChipItem(value: '180', label: '180天'),
               SegmentChipItem(value: '365', label: '365天'),
+              SegmentChipItem(value: 'permanent', label: '永久'),
             ],
           ),
           if (_isEdit && _item != null) ...[
@@ -341,6 +411,11 @@ class _ItemEditPageState extends ConsumerState<ItemEditPage> {
                     Text('操作人：${_item!.operatorName ?? '-'}'),
                     const SizedBox(height: 4),
                     Text('更新时间：${_item!.updatedAtDisplay}'),
+                    if (!_item!.isEnabled)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 8),
+                        child: Text('已停用，可执行删除操作', style: TextStyle(color: AppColors.textSecondary)),
+                      ),
                     if (_item!.inUse)
                       const Padding(
                         padding: EdgeInsets.only(top: 8),

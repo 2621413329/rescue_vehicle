@@ -21,7 +21,9 @@ class InventoryApiService {
         quantity: num.tryParse('${json['quantity']}') ?? 0,
         unit: '件',
         expiryDate: '${json['expiry_date'] ?? ''}',
-        remainingDays: json['remaining_days'] as int? ?? 0,
+        remainingDays: json['remaining_days'] as int?,
+        warningDays: json['warning_days'] as int? ?? 180,
+        warningTag: json['warning_tag'] as String?,
         cartName: json['cart_name'] as String? ?? '',
         layerName: json['layer_name'] as String? ?? '',
         layerNo: json['layer_no'] as int?,
@@ -54,6 +56,7 @@ class InventoryApiService {
     if (filter == InventoryFilter.needReplace) {
       list = list.where((e) => e.needsReplace).toList();
     }
+    list.sort((a, b) => a.sortRemainingDays.compareTo(b.sortRemainingDays));
     return list;
   }
 

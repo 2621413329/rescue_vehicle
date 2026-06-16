@@ -12,6 +12,7 @@ class WarningCard extends StatelessWidget {
     required this.time,
     this.onTap,
     this.statusBadges,
+    this.accentColor,
   });
 
   final String title;
@@ -20,6 +21,7 @@ class WarningCard extends StatelessWidget {
   final String time;
   final VoidCallback? onTap;
   final Widget? statusBadges;
+  final Color? accentColor;
 
   @override
   Widget build(BuildContext context) {
@@ -38,7 +40,7 @@ class WarningCard extends StatelessWidget {
                 height: 52,
                 margin: const EdgeInsets.only(top: 2, right: 10),
                 decoration: BoxDecoration(
-                  color: level.color,
+                  color: accentColor ?? level.color,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),

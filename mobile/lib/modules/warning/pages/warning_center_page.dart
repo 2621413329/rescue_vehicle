@@ -93,11 +93,13 @@ class WarningCenterPage extends ConsumerWidget {
               else
                 ...tasks.map((t) {
                   final actions = _actions(context, ref, t);
+                  final processed = (!t.needsReplace || t.taskReplaceDone) && (!t.needsLabel || t.taskLabelDone);
                   final card = WarningCard(
                     title: t.title,
                     subtitle: t.subtitle,
                     level: categoryLevel(t.category),
                     time: t.time,
+                    accentColor: processed ? AppColors.normal : null,
                     statusBadges: TaskStatusBadges(
                       replaceDone: t.taskReplaceDone,
                       labelDone: t.taskLabelDone,

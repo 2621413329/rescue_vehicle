@@ -30,7 +30,6 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   TimeOfDay _reminderTime = const TimeOfDay(hour: 10, minute: 0);
   bool _loaded = false;
   bool _savingReminder = false;
-  bool _testingNotification = false;
 
   @override
   void initState() {
@@ -73,26 +72,6 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     );
   }
 
-  Future<void> _sendTestNotification() async {
-    setState(() => _testingNotification = true);
-    try {
-      final result = await TaskReminderService.instance.showTestNotification();
-      final service = TaskReminderService.instance;
-      if (!mounted) return;
-      final message = switch (result) {
-        NotificationActionResult.success => '已发送测试通知，请下拉通知栏查看',
-        NotificationActionResult.permissionDenied => '未授予通知权限，请在系统设置中允许「救备通」发送通知',
-        NotificationActionResult.initFailed => service.lastInitError == null
-            ? '通知服务初始化失败，请重启 App 后重试'
-            : '通知服务初始化失败：${service.lastInitError}',
-        NotificationActionResult.failed => '发送失败，请检查通知权限与系统设置',
-      };
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-    } finally {
-      if (mounted) setState(() => _testingNotification = false);
-    }
-  }
-
   Future<void> _toggleReminder(bool value) async {
     setState(() {
       _reminderEnabled = value;
@@ -107,7 +86,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
           content: Text(
             scheduled
                 ? '已开启每日任务系统提醒'
-                : '已开启，但定时通知注册失败，请发送测试通知或检查系统权限',
+                : '已开启，但定时通知注册失败，请检查通知与闹钟权限',
           ),
         ),
       );
@@ -182,19 +161,6 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                       : const Icon(Icons.chevron_right),
                   enabled: _reminderEnabled && !_savingReminder,
                   onTap: _reminderEnabled && !_savingReminder ? _pickReminderTime : null,
-                ),
-              ),
-              Card(
-                margin: const EdgeInsets.only(bottom: 8),
-                child: ListTile(
-                  leading: const Icon(Icons.notifications_active_outlined, color: AppColors.primary),
-                  title: const Text('发送测试通知'),
-                  subtitle: const Text('验证系统通知栏是否正常显示'),
-                  trailing: _testingNotification
-                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Icon(Icons.chevron_right),
-                  enabled: !_testingNotification && !_savingReminder,
-                  onTap: _testingNotification || _savingReminder ? null : _sendTestNotification,
                 ),
               ),
             ],

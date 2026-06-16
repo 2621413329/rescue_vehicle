@@ -14,6 +14,7 @@ class InventoryCard extends StatefulWidget {
     required this.unit,
     required this.expiryDate,
     required this.remainingDays,
+    this.isPermanent = false,
     required this.cartName,
     required this.layerName,
     required this.riskLevel,
@@ -31,7 +32,8 @@ class InventoryCard extends StatefulWidget {
   final num quantity;
   final String unit;
   final String expiryDate;
-  final int remainingDays;
+  final int? remainingDays;
+  final bool isPermanent;
   final String cartName;
   final String layerName;
   final RiskLevel riskLevel;
@@ -81,7 +83,7 @@ class _InventoryCardState extends State<InventoryCard> {
                 children: [
                   _infoChip(Icons.inventory_2_outlined, '${widget.quantity}${widget.unit}'),
                   const SizedBox(width: 12),
-                  ExpiryBadge(remainingDays: widget.remainingDays),
+                  ExpiryBadge(remainingDays: widget.remainingDays, isPermanent: widget.isPermanent),
                 ],
               ),
               if (widget.needsReplace || widget.needsLabel || widget.taskReplaceDone || widget.taskLabelDone) ...[

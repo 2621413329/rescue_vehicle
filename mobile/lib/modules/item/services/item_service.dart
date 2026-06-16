@@ -41,7 +41,8 @@ class ItemApiService {
       'item_name': itemName,
       'item_type': itemType,
       'warning_days': warningDays,
-      if (defaultWarningTag != null && defaultWarningTag.isNotEmpty) 'default_warning_tag': defaultWarningTag,
+      if (WarningDays.isPermanent(warningDays) || (defaultWarningTag != null && defaultWarningTag.isNotEmpty))
+        'default_warning_tag': WarningDays.isPermanent(warningDays) ? '永久' : defaultWarningTag,
     });
     return MedicineItem.fromJson(data);
   }
@@ -58,7 +59,10 @@ class ItemApiService {
       'item_name': itemName,
       'item_type': itemType,
       if (warningDays != null) 'warning_days': warningDays,
-      if (defaultWarningTag != null) 'default_warning_tag': defaultWarningTag,
+      if (warningDays != null && WarningDays.isPermanent(warningDays))
+        'default_warning_tag': '永久'
+      else if (defaultWarningTag != null)
+        'default_warning_tag': defaultWarningTag,
       if (operationReason != null && operationReason.isNotEmpty) 'operation_reason': operationReason,
     });
     return MedicineItem.fromJson(data);
@@ -67,5 +71,9 @@ class ItemApiService {
   Future<MedicineItem> disable(int id) async {
     final data = await _api.post('/items/$id/disable');
     return MedicineItem.fromJson(data);
+  }
+
+  Future<void> delete({required int id, required String operationReason}) async {
+    await _api.delete('/items/$id', query: {'operation_reason': operationReason});
   }
 }

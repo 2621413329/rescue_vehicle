@@ -38,6 +38,23 @@ def calculate_expiry_fields(
         }
 
     remaining_days = (expiry_date - today).days
+    if warning_days == 0:
+        if remaining_days < 0:
+            return {
+                "remaining_days": remaining_days,
+                "expiry_status": ExpiryStatus.EXPIRED,
+                "label_color": LabelColor.RED,
+                "is_near_expiry": False,
+                "is_expired": True,
+            }
+        return {
+            "remaining_days": remaining_days,
+            "expiry_status": ExpiryStatus.NORMAL,
+            "label_color": LabelColor.GREEN,
+            "is_near_expiry": False,
+            "is_expired": False,
+        }
+
     if remaining_days < 0:
         return {
             "remaining_days": remaining_days,

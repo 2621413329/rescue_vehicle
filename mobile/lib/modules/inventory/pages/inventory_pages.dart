@@ -8,7 +8,9 @@ import '../../../core/providers/default_cart_provider.dart';
 import '../../../core/utils/task_actions.dart';
 import '../../../shared/widgets/audit_timeline.dart';
 import '../../../shared/widgets/expiry_date_field.dart';
+import '../../../shared/widgets/item_picker_sheet.dart';
 import '../../../shared/widgets/inventory_card.dart';
+import '../../../modules/item/models/item_models.dart';
 import '../../../core/utils/layer_format.dart';
 import '../../../shared/widgets/segment_chip_bar.dart';
 import '../../../shared/widgets/task_status_badges.dart';
@@ -75,6 +77,7 @@ class InventoryListPage extends ConsumerWidget {
                   unit: items[i].unit,
                   expiryDate: items[i].expiryDate,
                   remainingDays: items[i].remainingDays,
+                  isPermanent: items[i].isPermanent,
                   cartName: '',
                   layerName: items[i].layerDisplay,
                   riskLevel: items[i].riskLevel,
@@ -197,6 +200,7 @@ class InventoryDetailPage extends ConsumerWidget {
                 unit: item.unit,
                 expiryDate: item.expiryDate,
                 remainingDays: item.remainingDays,
+                isPermanent: item.isPermanent,
                 cartName: '',
                 layerName: item.layerDisplay,
                 riskLevel: item.riskLevel,
@@ -504,6 +508,21 @@ class _InventoryCreatePageState extends ConsumerState<InventoryCreatePage> {
     }
   }
 
+  Future<void> _pickItem() async {
+    final picked = await showItemPickerSheet(context, items: _items);
+    if (picked != null && mounted) {
+      setState(() => _itemId = picked['id'] as int);
+    }
+  }
+
+  Map<String, dynamic>? get _selectedItem {
+    if (_itemId == null) return null;
+    for (final i in _items) {
+      if (i['id'] == _itemId) return i;
+    }
+    return null;
+  }
+
   Future<void> _submit() async {
     if (_itemId == null || _cartId == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('请选择药品')));
@@ -549,13 +568,27 @@ class _InventoryCreatePageState extends ConsumerState<InventoryCreatePage> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          DropdownButtonFormField<int>(
-            value: _itemId,
-            decoration: const InputDecoration(labelText: '选择药品'),
-            items: _items
-                .map((i) => DropdownMenuItem(value: i['id'] as int, child: Text(i['item_name'] as String? ?? '')))
-                .toList(),
-            onChanged: (v) => setState(() => _itemId = v),
+          InkWell(
+            onTap: _pickItem,
+            borderRadius: BorderRadius.circular(4),
+            child: InputDecorator(
+              decoration: const InputDecoration(
+                labelText: '选择药品',
+                suffixIcon: Icon(Icons.expand_more),
+              ),
+              child: _selectedItem == null
+                  ? const Text('点击选择药品', style: TextStyle(color: AppColors.textHint))
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(_selectedItem!['item_name'] as String? ?? '', style: const TextStyle(fontSize: 16)),
+                        Text(
+                          ItemTypeLabels.label(_selectedItem!['item_type'] as String?),
+                          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                        ),
+                      ],
+                    ),
+            ),
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<int>(

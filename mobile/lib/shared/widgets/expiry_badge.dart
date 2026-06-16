@@ -1,28 +1,31 @@
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/utils/remaining_days_format.dart';
 
 class ExpiryBadge extends StatelessWidget {
   const ExpiryBadge({
     super.key,
     required this.remainingDays,
+    this.isPermanent = false,
     this.showLabel = true,
   });
 
-  final int remainingDays;
+  final int? remainingDays;
+  final bool isPermanent;
   final bool showLabel;
 
   Color get _color {
-    if (remainingDays < 0) return AppColors.danger;
-    if (remainingDays <= 90) return AppColors.danger;
-    if (remainingDays <= 180) return AppColors.warning;
+    if (isPermanent) return AppColors.normal;
+    final days = remainingDays;
+    if (days == null) return AppColors.normal;
+    if (days < 0) return AppColors.danger;
+    if (days <= 90) return AppColors.danger;
+    if (days <= 180) return AppColors.warning;
     return AppColors.normal;
   }
 
-  String get _text {
-    if (remainingDays < 0) return '已过期 ${remainingDays.abs()}天';
-    return '剩余 $remainingDays 天';
-  }
+  String get _text => formatRemainingDaysText(remainingDays, isPermanent: isPermanent);
 
   @override
   Widget build(BuildContext context) {

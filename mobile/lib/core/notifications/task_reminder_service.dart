@@ -92,6 +92,8 @@ class TaskReminderService {
           importance: Importance.max,
           priority: Priority.high,
           visibility: NotificationVisibility.public,
+          playSound: true,
+          enableVibration: true,
         ),
         iOS: const DarwinNotificationDetails(
           presentAlert: true,

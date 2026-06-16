@@ -15,6 +15,12 @@ abstract final class ItemTypeLabels {
       };
 }
 
+abstract final class WarningDays {
+  static const permanent = 0;
+
+  static bool isPermanent(int days) => days == permanent;
+}
+
 class MedicineItem {
   const MedicineItem({
     required this.id,
@@ -55,7 +61,12 @@ class MedicineItem {
 
   String get typeLabel => ItemTypeLabels.label(itemType);
 
-  String get warningLabel => defaultWarningTag ?? '${warningDays}天预警';
+  bool get isPermanent => WarningDays.isPermanent(warningDays) || defaultWarningTag == '永久';
+
+  String get warningLabel {
+    if (isPermanent) return '永久';
+    return defaultWarningTag ?? '${warningDays}天预警';
+  }
 
   String get updatedAtDisplay {
     if (updatedAt.length >= 16) return updatedAt.substring(0, 16).replaceFirst('T', ' ');

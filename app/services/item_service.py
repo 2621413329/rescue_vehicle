@@ -56,6 +56,8 @@ class ItemService:
             raise HTTPException(status_code=400, detail="物资编码已存在")
         payload = data.model_dump()
         payload["item_code"] = item_code
+        if payload.get("warning_days") == 0:
+            payload["default_warning_tag"] = payload.get("default_warning_tag") or "永久"
         item = Item(**payload, created_by=operator.id, updated_by=operator.id)
         self.db.add(item)
         self.db.flush()
@@ -87,6 +89,12 @@ class ItemService:
 
         if update_data.get("is_enabled") is False and item.is_enabled and self.repo.has_inventory(item.id):
             raise HTTPException(status_code=400, detail="该药品已被库存使用，不可停用")
+
+        if update_data.get("warning_days") == 0:
+            update_data["default_warning_tag"] = "永久"
+        elif "warning_days" in update_data and update_data["warning_days"] != 0:
+            if item.warning_days == 0 or item.default_warning_tag == "永久":
+                update_data["default_warning_tag"] = None
 
         old = Item(
             id=item.id,
@@ -140,6 +148,10 @@ class ItemService:
         item = self.repo.get_by_id(item_id)
         if not item:
             raise HTTPException(status_code=404, detail="物资不存在")
+        if item.is_enabled:
+            raise HTTPException(status_code=400, detail="请先停用该药品后再删除")
+        if self.repo.has_inventory(item.id):
+            raise HTTPException(status_code=400, detail="该药品已被库存使用，不可删除")
         if not operation_reason:
             raise HTTPException(status_code=400, detail="删除物资必须填写操作原因")
         AuditService.log_model_change(

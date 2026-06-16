@@ -15,7 +15,7 @@ class ItemCreate(BaseModel):
     description: str | None = None
     usage_instruction: str | None = None
     storage_requirement: str | None = None
-    warning_days: int = Field(default=180, ge=1)
+    warning_days: int = Field(default=180, ge=0)
     default_warning_tag: str | None = None
     is_enabled: bool = True
 
@@ -29,7 +29,7 @@ class ItemUpdate(BaseModel):
     description: str | None = None
     usage_instruction: str | None = None
     storage_requirement: str | None = None
-    warning_days: int | None = Field(default=None, ge=1)
+    warning_days: int | None = Field(default=None, ge=0)
     default_warning_tag: str | None = None
     is_enabled: bool | None = None
     operation_reason: str | None = Field(

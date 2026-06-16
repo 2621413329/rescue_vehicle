@@ -318,6 +318,7 @@ class InventoryService:
             )
         elif action == "LABEL_UNDONE":
             reason = remark or "任务通知撤销：恢复为待贴标签"
+            old_data = {"task_label_done": inventory.task_label_done}
             inventory.task_label_done = False
             inventory.task_label_done_at = None
             inventory.updated_by = operator.id
@@ -326,6 +327,7 @@ class InventoryService:
                 module="inventory",
                 business_id=inventory_id,
                 operation_type=OperationType.UPDATE,
+                old_data=old_data,
                 new_data={"remark": reason, "task_label_done": False},
                 operator_id=operator.id,
                 operator_name=operator.real_name,
@@ -333,6 +335,7 @@ class InventoryService:
             )
         elif action == "REPLACE_UNDONE":
             reason = remark or "任务通知撤销：恢复为待更换"
+            old_data = {"task_replace_done": inventory.task_replace_done}
             inventory.task_replace_done = False
             inventory.task_replace_done_at = None
             inventory.updated_by = operator.id
@@ -341,6 +344,7 @@ class InventoryService:
                 module="inventory",
                 business_id=inventory_id,
                 operation_type=OperationType.UPDATE,
+                old_data=old_data,
                 new_data={"remark": reason, "task_replace_done": False},
                 operator_id=operator.id,
                 operator_name=operator.real_name,

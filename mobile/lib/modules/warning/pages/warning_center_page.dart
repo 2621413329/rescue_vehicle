@@ -133,8 +133,20 @@ class WarningCenterPage extends ConsumerWidget {
       crossAxisSpacing: 10,
       childAspectRatio: 2.2,
       children: [
-        _catTile('待更换', replaceTotal - replaceDone, AppColors.danger, Icons.sync, '$replaceDone/$replaceTotal 已完成'),
-        _catTile('待贴标签', labelTotal - labelDone, AppColors.warning, Icons.label, '$labelDone/$labelTotal 已完成'),
+        _catTile(
+          '待更换',
+          replaceTotal - replaceDone,
+          AppColors.danger,
+          Icons.sync,
+          replaceTotal == 0 ? '暂无待更换' : '$replaceDone/$replaceTotal 已完成',
+        ),
+        _catTile(
+          '待贴标签',
+          labelTotal - labelDone,
+          AppColors.warning,
+          Icons.label,
+          labelTotal == 0 ? '暂无待贴标签' : '$labelDone/$labelTotal 已完成',
+        ),
       ],
     );
   }

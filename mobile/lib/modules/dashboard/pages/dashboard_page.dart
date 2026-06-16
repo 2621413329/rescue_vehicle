@@ -69,9 +69,17 @@ class _Header extends StatelessWidget {
             const SizedBox(height: 16),
             Row(
               children: [
-                _headerStat('待更换', '${t.completedReplace}/${t.totalReplace}', sub: '已完成/待更换'),
+                _headerStat(
+                  '待更换',
+                  t.totalReplace == 0 ? '—' : '${t.completedReplace}/${t.totalReplace}',
+                  sub: t.totalReplace == 0 ? '暂无待更换' : '已完成/待更换',
+                ),
                 const SizedBox(width: 24),
-                _headerStat('待贴标签', '${t.completedLabels}/${t.totalLabels}', sub: '已完成/待贴标签'),
+                _headerStat(
+                  '待贴标签',
+                  t.totalLabels == 0 ? '—' : '${t.completedLabels}/${t.totalLabels}',
+                  sub: t.totalLabels == 0 ? '暂无待贴标签' : '已完成/待贴标签',
+                ),
               ],
             ),
           ],
@@ -112,13 +120,13 @@ class _TodayTasksSection extends StatelessWidget {
             physics: const NeverScrollableScrollPhysics(),
             mainAxisSpacing: 12,
             crossAxisSpacing: 12,
-            childAspectRatio: 1.35,
+            childAspectRatio: 1.05,
             children: [
               TaskCard(
                 icon: Icons.sync_alt,
                 label: '待更换',
                 count: t.pendingReplace,
-                subLabel: '${t.completedReplace}/${t.totalReplace} 已完成',
+                subLabel: t.totalReplace == 0 ? '暂无待更换' : '${t.completedReplace}/${t.totalReplace} 已完成',
                 color: AppColors.danger,
                 onTap: () => context.push('/warning'),
               ),
@@ -126,9 +134,9 @@ class _TodayTasksSection extends StatelessWidget {
                 icon: Icons.label_outline,
                 label: '待贴标签',
                 count: t.pendingLabels,
-                subLabel: '${t.completedLabels}/${t.totalLabels} 已完成',
+                subLabel: t.totalLabels == 0 ? '暂无待贴标签' : '${t.completedLabels}/${t.totalLabels} 已完成',
                 color: AppColors.warning,
-                onTap: () => context.push('/label'),
+                onTap: () => context.push('/warning'),
               ),
             ],
           ),

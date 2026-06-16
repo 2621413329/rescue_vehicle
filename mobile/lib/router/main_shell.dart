@@ -53,13 +53,19 @@ class _MainShellState extends ConsumerState<MainShell> with WidgetsBindingObserv
 
     try {
       final stats = await ref.read(warningStatsProvider.future);
+      final replacePending = stats['replacePending'] ?? 0;
+      final labelPending = stats['labelPending'] ?? 0;
+      if (replacePending + labelPending <= 0) {
+        await service.markShownToday();
+        return;
+      }
       final tasks = await ref.read(warningListProvider.future);
       if (!mounted) return;
       await showDailyTaskSummaryDialog(context, stats: stats, taskCount: tasks.length);
       await service.markShownToday();
       await service.showDailySummaryNotification(
-        replacePending: stats['replacePending'] ?? 0,
-        labelPending: stats['labelPending'] ?? 0,
+        replacePending: replacePending,
+        labelPending: labelPending,
       );
     } catch (_) {
       // 网络异常时跳过，下次再试

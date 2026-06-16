@@ -80,7 +80,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       await TaskReminderService.instance.setEnabled(value);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(value ? '已开启每日任务提醒，请留意测试通知' : '已关闭每日任务提醒')),
+        SnackBar(content: Text(value ? '已开启每日任务提醒' : '已关闭每日任务提醒')),
       );
     } catch (_) {
       if (!mounted) return;

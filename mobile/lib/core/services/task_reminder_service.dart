@@ -85,10 +85,10 @@ class TaskReminderService {
     await prefs.setBool(_keyEnabled, value);
     if (!value) {
       await _notifications.cancel(notificationId);
+      await _notifications.cancel(notificationId + 1);
       return;
     }
-    await _safeSchedule();
-    await sendTestNotification();
+    await scheduleDailyNotification();
   }
 
   Future<TimeOfDay> getReminderTime() async {
@@ -103,18 +103,7 @@ class TaskReminderService {
     final prefs = await _prefs();
     await prefs.setInt(_keyHour, time.hour);
     await prefs.setInt(_keyMinute, time.minute);
-    await _safeSchedule();
-    if (await isEnabled()) {
-      await sendTestNotification();
-    }
-  }
-
-  Future<void> _safeSchedule() async {
-    try {
-      await scheduleDailyNotification();
-    } catch (_) {
-      // 偏好已保存，应用内弹窗仍可用
-    }
+    await scheduleDailyNotification();
   }
 
   String _todayKey(DateTime now) =>
@@ -147,69 +136,24 @@ class TaskReminderService {
         iOS: DarwinNotificationDetails(),
       );
 
+  /// 仅保存偏好，实际推送由应用内定时检查并在有待办时触发。
   Future<void> scheduleDailyNotification() async {
     if (!_initialized) {
       await init();
       return;
     }
-    if (!await isEnabled()) return;
-
-    await _configureLocalTimeZone();
-    await _setupAndroidChannel();
-
-    final time = await getReminderTime();
-    final now = tz.TZDateTime.now(tz.local);
-    var scheduled = tz.TZDateTime(tz.local, now.year, now.month, now.day, time.hour, time.minute);
-    if (scheduled.isBefore(now)) {
-      scheduled = scheduled.add(const Duration(days: 1));
-    }
-
     await _notifications.cancel(notificationId);
-    try {
-      await _notifications.zonedSchedule(
-        notificationId,
-        '今日任务汇总',
-        '请查看待更换与待贴标签任务',
-        scheduled,
-        _notificationDetails,
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        matchDateTimeComponents: DateTimeComponents.time,
-        uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
-      );
-    } catch (_) {
-      await _notifications.zonedSchedule(
-        notificationId,
-        '今日任务汇总',
-        '请查看待更换与待贴标签任务',
-        scheduled,
-        _notificationDetails,
-        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-        matchDateTimeComponents: DateTimeComponents.time,
-        uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
-      );
-    }
   }
 
   Future<void> showDailySummaryNotification({required int replacePending, required int labelPending}) async {
     if (!_initialized) await init();
     if (!await isEnabled()) return;
-    final total = replacePending + labelPending;
-    final body = total > 0 ? '待更换 $replacePending 项，待贴标签 $labelPending 项' : '当前暂无待处理任务';
+    final pending = replacePending + labelPending;
+    if (pending <= 0) return;
     await _notifications.show(
       notificationId + 1,
       '今日任务汇总',
-      body,
-      _notificationDetails,
-    );
-  }
-
-  Future<void> sendTestNotification() async {
-    if (!_initialized) await init();
-    await _setupAndroidChannel();
-    await _notifications.show(
-      notificationId + 2,
-      '提醒已生效',
-      '每日任务提醒已开启，到达设定时间后将推送汇总',
+      '待更换 $replacePending 项，待贴标签 $labelPending 项',
       _notificationDetails,
     );
   }

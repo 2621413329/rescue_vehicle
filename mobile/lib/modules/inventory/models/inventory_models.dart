@@ -41,8 +41,7 @@ class InventoryItem {
   final bool isExpired;
   final bool isNearExpiry;
 
-  bool get needsReplace =>
-      isExpired || isNearExpiry || remainingDays <= 90;
+  bool get needsReplace => isExpired || remainingDays <= 0;
 
   bool get needsLabel =>
       labelStatus.contains('待') || labelStatus.contains('更新') || labelStatus.contains('需立即');

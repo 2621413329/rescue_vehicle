@@ -79,9 +79,10 @@ def calculate_label_status(remaining_days: int | None) -> dict[str, str]:
 
 
 def inventory_needs_replace(remaining_days: int | None, is_expired: bool = False, is_near_expiry: bool = False) -> bool:
-    if is_expired or is_near_expiry:
+    """待更换：仅已过期或今天到期（remaining_days <= 0）。"""
+    if is_expired:
         return True
-    return remaining_days is not None and remaining_days <= 90
+    return remaining_days is not None and remaining_days <= 0
 
 
 def inventory_needs_label(remaining_days: int | None, has_print: bool = False) -> bool:

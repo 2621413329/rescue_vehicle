@@ -42,11 +42,18 @@ RiskLevel categoryLevel(WarningCategory c) => switch (c) {
       WarningCategory.replace => RiskLevel.danger,
     };
 
-WarningCategory _primaryCategory(Map<String, dynamic> m) {
-  if (m['is_expired'] == true) return WarningCategory.expired;
-  if (m['is_near_expiry'] == true) return WarningCategory.nearExpiry;
+bool _needsReplace(Map<String, dynamic> m) {
+  final isExpired = m['is_expired'] as bool? ?? false;
   final days = m['remaining_days'] as int? ?? 999;
-  if (days <= 90) return WarningCategory.replace;
+  return isExpired || days <= 0;
+}
+
+WarningCategory _primaryCategory(Map<String, dynamic> m) {
+  final isExpired = m['is_expired'] as bool? ?? false;
+  final days = m['remaining_days'] as int? ?? 999;
+  if (isExpired || days < 0) return WarningCategory.expired;
+  if (days == 0) return WarningCategory.replace;
+  if (m['is_near_expiry'] == true) return WarningCategory.nearExpiry;
   return WarningCategory.labelUpdate;
 }
 
@@ -67,15 +74,14 @@ WarningTask? _taskFromInventory(Map<String, dynamic> m) {
   final layer = layerNo != null ? '层级 $layerNo' : (layerName.isEmpty ? '' : layerName);
   final days = m['remaining_days'] as int? ?? 0;
   final id = m['id'] as int? ?? 0;
-  final isExpired = m['is_expired'] as bool? ?? false;
   final isNearExpiry = m['is_near_expiry'] as bool? ?? false;
   final replaceDone = m['task_replace_done'] as bool? ?? false;
   final labelDone = m['task_label_done'] as bool? ?? false;
   final label = m['label_status_text'] as String? ?? '';
-  final needsReplace = isExpired || isNearExpiry || days <= 90;
+  final needsReplace = _needsReplace(m);
   final needsLabel = label.contains('待') || label.contains('更新') || label.contains('需立即');
 
-  if (!needsReplace && !needsLabel && !replaceDone && !labelDone) return null;
+  if (!needsReplace && !needsLabel && !isNearExpiry && !replaceDone && !labelDone) return null;
 
   final category = _primaryCategory(m);
   final subtitle = layer.isEmpty ? '剩余 $days 天' : '$layer · 剩余 $days 天';

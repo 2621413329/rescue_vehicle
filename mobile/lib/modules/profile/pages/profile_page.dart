@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/services/task_reminder_service.dart';
 import '../../auth/services/auth_service.dart';
 
 final profileStatsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
@@ -16,11 +17,52 @@ final currentUserProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   return api.get('/users/me');
 });
 
-class ProfilePage extends ConsumerWidget {
+class ProfilePage extends ConsumerStatefulWidget {
   const ProfilePage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends ConsumerState<ProfilePage> {
+  bool _reminderEnabled = true;
+  TimeOfDay _reminderTime = const TimeOfDay(hour: 10, minute: 0);
+  bool _loaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadReminderSettings();
+  }
+
+  Future<void> _loadReminderSettings() async {
+    final service = TaskReminderService.instance;
+    final enabled = await service.isEnabled();
+    final time = await service.getReminderTime();
+    if (mounted) {
+      setState(() {
+        _reminderEnabled = enabled;
+        _reminderTime = time;
+        _loaded = true;
+      });
+    }
+  }
+
+  Future<void> _pickReminderTime() async {
+    final picked = await showTimePicker(context: context, initialTime: _reminderTime);
+    if (picked == null) return;
+    await TaskReminderService.instance.setReminderTime(picked);
+    setState(() => _reminderTime = picked);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('已设置每日 ${_formatTime(picked)} 提醒')));
+    }
+  }
+
+  String _formatTime(TimeOfDay time) =>
+      '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+
+  @override
+  Widget build(BuildContext context) {
     final userAsync = ref.watch(currentUserProvider);
     final statsAsync = ref.watch(profileStatsProvider);
     return Scaffold(
@@ -59,6 +101,31 @@ class ProfilePage extends ConsumerWidget {
               error: (_, __) => const SizedBox.shrink(),
               data: (stats) => _statRow('本月处理库存', '${stats['month_inventory_ops']}项'),
             ),
+            if (_loaded) ...[
+              Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                child: SwitchListTile(
+                  title: const Text('每日任务提醒'),
+                  subtitle: Text('每天 ${_formatTime(_reminderTime)} 弹窗汇总待办'),
+                  value: _reminderEnabled,
+                  onChanged: (v) async {
+                    await TaskReminderService.instance.setEnabled(v);
+                    setState(() => _reminderEnabled = v);
+                  },
+                ),
+              ),
+              Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                child: ListTile(
+                  leading: const Icon(Icons.schedule, color: AppColors.primary),
+                  title: const Text('提醒时间'),
+                  subtitle: Text(_formatTime(_reminderTime)),
+                  trailing: const Icon(Icons.chevron_right),
+                  enabled: _reminderEnabled,
+                  onTap: _reminderEnabled ? _pickReminderTime : null,
+                ),
+              ),
+            ],
             _menuTile(context, Icons.medication_outlined, '药品管理', '/items'),
             _menuTile(context, Icons.label_outline, '标签中心', '/label'),
             _menuTile(context, Icons.history, '操作日志', '/audit'),

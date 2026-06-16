@@ -14,15 +14,8 @@ from app.models.operation_reason import OperationReason
 from app.models.user import User
 from app.repositories.inventory_repository import InventoryRepository
 from app.schemas.common import PageResult
+from app.utils.audit_labels import audit_target, operation_title, sort_timestamp
 from app.utils.helpers import calculate_label_status
-
-OPERATION_TITLES = {
-    OperationType.CREATE.value: "入库",
-    OperationType.UPDATE.value: "修改库存",
-    OperationType.DELETE.value: "删除库存",
-    OperationType.LABEL_PRINT.value: "打印标签",
-    OperationType.REPLACE_DONE.value: "完成更换",
-}
 
 
 class LabelService:
@@ -187,8 +180,7 @@ class TimelineService:
             )
 
         for log in logs:
-            op = log.operation_type.value if hasattr(log.operation_type, "value") else str(log.operation_type)
-            title = OPERATION_TITLES.get(op, op)
+            title = operation_title(log.operation_type, log.module, log.new_data)
             detail = ""
             if log.new_data and isinstance(log.new_data, dict):
                 if log.new_data.get("remark"):
@@ -214,7 +206,8 @@ class TimelineService:
             )
 
         for r in reasons:
-            if r.reason_type.value == "INVENTORY_UPDATE":
+            rt = r.reason_type.value if hasattr(r.reason_type, "value") else str(r.reason_type)
+            if rt == "INVENTORY_UPDATE":
                 continue
             items.append(
                 {
@@ -226,7 +219,7 @@ class TimelineService:
                 }
             )
 
-        items.sort(key=lambda x: x.get("_sort") or datetime.min.replace(tzinfo=timezone.utc))
+        items.sort(key=lambda x: sort_timestamp(x.get("_sort")))
         for item in items:
             item.pop("_sort", None)
         return items

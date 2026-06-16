@@ -15,6 +15,7 @@ from app.models.label import LabelPrintRecord
 from app.models.notification import Notification
 from app.models.user import User
 from app.utils.helpers import calculate_label_status, inventory_needs_label, inventory_needs_replace
+from app.utils.audit_labels import audit_target, operation_title
 
 
 class RiskService:
@@ -344,8 +345,8 @@ class DashboardExtendedService:
         return [
             {
                 "operator_name": log.operator_name or "系统",
-                "action": log.operation_type.value if hasattr(log.operation_type, "value") else str(log.operation_type),
-                "target": f"{log.module}#{log.business_id or '-'}",
+                "action": operation_title(log.operation_type, log.module, log.new_data),
+                "target": audit_target(self.db, log.module, log.business_id),
                 "time": log.operation_time.strftime("%H:%M") if log.operation_time else "",
             }
             for log in logs

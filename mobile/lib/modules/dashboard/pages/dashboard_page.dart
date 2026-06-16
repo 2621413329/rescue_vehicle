@@ -398,7 +398,7 @@ class _RecentAuditSection extends StatelessWidget {
                     backgroundColor: AppColors.primaryLight,
                     child: Text(a.operatorName[0], style: const TextStyle(color: AppColors.primary, fontSize: 14)),
                   ),
-                  title: Text('${a.operatorName} ${a.action}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                  title: Text('${a.operatorName} · ${a.action}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
                   subtitle: Text(a.target, style: const TextStyle(fontSize: 12)),
                   trailing: Text(a.time, style: const TextStyle(fontSize: 11, color: AppColors.textHint)),
                 );

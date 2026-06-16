@@ -32,6 +32,8 @@ class AuditLogOut(ORMModel):
     operator_name: str | None
     operation_time: datetime
     ip_address: str | None
+    action_label: str | None = None
+    target_label: str | None = None
 
 
 class AuditLogQuery(PageParams):

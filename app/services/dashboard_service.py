@@ -119,6 +119,17 @@ class AuditLogService:
         self.db = db
         self.repo = AuditLogRepository(db)
 
+    def _to_out(self, log) -> AuditLogOut:
+        from app.utils.audit_labels import audit_target, operation_title
+
+        base = AuditLogOut.model_validate(log)
+        return base.model_copy(
+            update={
+                "action_label": operation_title(log.operation_type, log.module, log.new_data),
+                "target_label": audit_target(self.db, log.module, log.business_id),
+            }
+        )
+
     def list(self, query: AuditLogQuery) -> PageResult[AuditLogOut]:
         items, total = self.repo.list_logs(
             page=query.page,
@@ -129,7 +140,7 @@ class AuditLogService:
             operation_type=query.operation_type.value if query.operation_type else None,
         )
         return PageResult(
-            items=[AuditLogOut.model_validate(i) for i in items],
+            items=[self._to_out(i) for i in items],
             total=total,
             page=query.page,
             page_size=query.page_size,

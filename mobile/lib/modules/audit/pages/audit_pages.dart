@@ -31,9 +31,9 @@ class AuditLogPage extends ConsumerWidget {
             return Card(
               child: ListTile(
                 onTap: () => context.push('/audit/${log['id']}'),
-                title: Text('${log['module']} #${log['business_id']}', style: const TextStyle(fontWeight: FontWeight.w500)),
-                subtitle: Text('${log['operator_name']} · ${log['operation_time']}'),
-                trailing: Text('${log['operation_type']}', style: const TextStyle(fontSize: 11)),
+                title: Text('${log['action_label'] ?? log['operation_type']}', style: const TextStyle(fontWeight: FontWeight.w500)),
+                subtitle: Text('${log['operator_name']} · ${log['target_label'] ?? '${log['module']} #${log['business_id']}'}'),
+                trailing: Text('${log['operation_time']}'.length >= 16 ? '${log['operation_time']}'.substring(11, 16) : '${log['operation_time']}', style: const TextStyle(fontSize: 11)),
               ),
             );
           },
@@ -53,7 +53,7 @@ class AuditDetailPage extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('审计详情')),
       body: FutureBuilder(
-        future: ref.read(apiClientProvider).get('/audit-logs', query: {'page': 1, 'page_size': 200}).then((data) {
+        future: ref.read(apiClientProvider).get('/audit-logs', query: {'page': 1, 'page_size': 100}).then((data) {
           final items = (data['items'] as List<dynamic>? ?? []).cast<Map<String, dynamic>>();
           return items.firstWhere((e) => e['id'] == id, orElse: () => <String, dynamic>{});
         }),
@@ -64,6 +64,8 @@ class AuditDetailPage extends ConsumerWidget {
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
+              _row('操作', '${log['action_label'] ?? log['operation_type']}'),
+              _row('对象', '${log['target_label'] ?? '${log['module']} #${log['business_id']}'}'),
               _row('操作人', '${log['operator_name']}'),
               _row('时间', '${log['operation_time']}'),
               _row('IP', '${log['ip_address'] ?? '-'}'),

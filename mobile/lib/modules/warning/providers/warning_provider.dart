@@ -97,7 +97,7 @@ WarningTask? _taskFromInventory(Map<String, dynamic> m) {
 
 final warningListProvider = FutureProvider<List<WarningTask>>((ref) async {
   final api = ref.watch(apiClientProvider);
-  final data = await api.get('/inventories', query: {'page': 1, 'page_size': 200});
+  final data = await api.get('/inventories', query: {'page': 1, 'page_size': 100});
   final items = (data['items'] as List<dynamic>? ?? []).cast<Map<String, dynamic>>();
   return items.map(_taskFromInventory).whereType<WarningTask>().toList();
 });

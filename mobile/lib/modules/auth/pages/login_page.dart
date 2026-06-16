@@ -67,16 +67,19 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Spacer(),
-              const Icon(Icons.medical_services_outlined, size: 64, color: AppColors.primary),
-              const SizedBox(height: 16),
-              const Text('抢救车效期', textAlign: TextAlign.center, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
-              const Text('任务驱动 · 风险预警 · 效期追溯', textAlign: TextAlign.center, style: TextStyle(color: AppColors.textSecondary)),
-              const SizedBox(height: 8),
-              Text(
-                'API: ${EnvConfig.apiBaseUrl}',
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+              Center(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Image.asset(
+                    'assets/branding/app_icon.png',
+                    width: 72,
+                    height: 72,
+                    fit: BoxFit.contain,
+                  ),
+                ),
               ),
+              const SizedBox(height: 16),
+              const Text('救备通', textAlign: TextAlign.center, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
               const SizedBox(height: 48),
               TextField(controller: _username, decoration: const InputDecoration(labelText: '用户名', prefixIcon: Icon(Icons.person_outline))),
               const SizedBox(height: 16),

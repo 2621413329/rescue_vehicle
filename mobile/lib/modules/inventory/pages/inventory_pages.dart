@@ -9,6 +9,7 @@ import '../../../core/utils/task_actions.dart';
 import '../../../shared/widgets/audit_timeline.dart';
 import '../../../shared/widgets/expiry_date_field.dart';
 import '../../../shared/widgets/inventory_card.dart';
+import '../../../core/utils/layer_format.dart';
 import '../../../shared/widgets/segment_chip_bar.dart';
 import '../../../shared/widgets/task_status_badges.dart';
 import '../models/inventory_models.dart';
@@ -156,7 +157,7 @@ class _LayerFilterBar extends StatelessWidget {
         for (var n = 1; n <= 5; n++)
           SegmentChipItem(
             value: byNo[n] != null ? '${byNo[n]!['id']}' : 'none_$n',
-            label: '$n',
+            label: formatLayerNo(n),
           ),
       ],
     );

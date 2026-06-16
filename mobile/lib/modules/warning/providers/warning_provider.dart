@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/utils/layer_format.dart';
 
 class WarningTask {
   const WarningTask({
@@ -67,19 +68,25 @@ String _titleFor(Map<String, dynamic> m, WarningCategory category) {
   };
 }
 
+bool _needsLabel(Map<String, dynamic> m) {
+  if (m['task_label_done'] as bool? ?? false) return false;
+  if (_needsReplace(m)) return false;
+  final days = m['remaining_days'] as int? ?? 999;
+  return days <= 180;
+}
+
 WarningTask? _taskFromInventory(Map<String, dynamic> m) {
   final name = m['item_name'] as String? ?? '未知药品';
   final layerNo = m['layer_no'] as int?;
   final layerName = m['layer_name'] as String? ?? '';
-  final layer = layerNo != null ? '层级 $layerNo' : (layerName.isEmpty ? '' : layerName);
+  final layer = layerNo != null ? formatLayerNo(layerNo) : (layerName.isEmpty ? '' : layerName);
   final days = m['remaining_days'] as int? ?? 0;
   final id = m['id'] as int? ?? 0;
   final isNearExpiry = m['is_near_expiry'] as bool? ?? false;
   final replaceDone = m['task_replace_done'] as bool? ?? false;
   final labelDone = m['task_label_done'] as bool? ?? false;
-  final label = m['label_status_text'] as String? ?? '';
   final needsReplace = _needsReplace(m);
-  final needsLabel = label.contains('待') || label.contains('更新') || label.contains('需立即');
+  final needsLabel = _needsLabel(m);
 
   if (!needsReplace && !needsLabel && !isNearExpiry && !replaceDone && !labelDone) return null;
 

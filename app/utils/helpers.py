@@ -68,14 +68,34 @@ def calculate_low_stock(quantity: Decimal | float, minimum_quantity: Decimal | f
 
 
 def calculate_label_status(remaining_days: int | None) -> dict[str, str]:
-    """标签规则：绿>180，黄≤180，红≤90。"""
+    """标签颜色规则：绿>180天，黄≤180天，红≤90天。"""
     if remaining_days is None:
-        return {"label_status": "GREEN", "label_status_text": "正常"}
+        return {"label_status": "GREEN", "label_status_text": "标签正常"}
     if remaining_days <= 90:
-        return {"label_status": "RED", "label_status_text": "需立即更换"}
+        return {"label_status": "RED", "label_status_text": "需贴红色标签"}
     if remaining_days <= 180:
-        return {"label_status": "YELLOW", "label_status_text": "待更新标签"}
+        return {"label_status": "YELLOW", "label_status_text": "需贴黄色标签"}
     return {"label_status": "GREEN", "label_status_text": "标签正常"}
+
+
+def resolve_inventory_label_status(
+    remaining_days: int | None,
+    *,
+    task_label_done: bool = False,
+    is_expired: bool = False,
+) -> dict[str, str]:
+    """库存详情展示用标签状态（贴标任务与药品更换分开提示）。"""
+    if is_expired or (remaining_days is not None and remaining_days < 0):
+        return {"label_status": "RED", "label_status_text": "已过期，需更换药品"}
+
+    base = calculate_label_status(remaining_days)
+    if task_label_done:
+        if base["label_status"] == "GREEN":
+            return {"label_status": "GREEN", "label_status_text": "标签正常"}
+        color = "红色" if base["label_status"] == "RED" else "黄色"
+        return {"label_status": base["label_status"], "label_status_text": f"已贴{color}标签"}
+
+    return base
 
 
 def inventory_needs_replace(remaining_days: int | None, is_expired: bool = False, is_near_expiry: bool = False) -> bool:

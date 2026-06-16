@@ -29,6 +29,7 @@ from app.utils.helpers import (
     calculate_label_status,
     calculate_low_stock,
     inventory_needs_replace,
+    resolve_inventory_label_status,
 )
 
 
@@ -66,7 +67,11 @@ class InventoryService:
         item = self.item_repo.get_by_id(inventory.item_id)
         cart = self.cart_repo.get_by_id(inventory.cart_id)
         layer = self.layer_repo.get_by_id(inventory.layer_id) if inventory.layer_id else None
-        ls = calculate_label_status(inventory.remaining_days)
+        ls = resolve_inventory_label_status(
+            inventory.remaining_days,
+            task_label_done=inventory.task_label_done,
+            is_expired=inventory.is_expired,
+        )
         base = InventoryOut.model_validate(inventory).model_dump()
         return InventoryDetailOut(
             **base,

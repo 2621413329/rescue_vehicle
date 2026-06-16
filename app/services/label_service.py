@@ -219,7 +219,7 @@ class TimelineService:
                 }
             )
 
-        items.sort(key=lambda x: sort_timestamp(x.get("_sort")))
+        items.sort(key=lambda x: sort_timestamp(x.get("_sort")), reverse=True)
         for item in items:
             item.pop("_sort", None)
         return items

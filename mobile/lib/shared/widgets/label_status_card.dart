@@ -34,8 +34,8 @@ class LabelStatusCard extends StatelessWidget {
 
   String get _statusText => switch (status) {
         LabelStatus.green => '标签正常',
-        LabelStatus.yellow => '待更新标签',
-        LabelStatus.red => '需立即更换',
+        LabelStatus.yellow => '需贴黄色标签',
+        LabelStatus.red => '需贴红色标签',
         LabelStatus.pending => '待贴标签',
         LabelStatus.needUpdate => '标签过期',
       };

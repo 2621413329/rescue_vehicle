@@ -145,5 +145,3 @@ class TypeOptionGrid extends StatelessWidget {
     );
   }
 }
-
-String layerNoLabel(Map<String, dynamic> layer) => '${layer['layer_no'] ?? ''}';

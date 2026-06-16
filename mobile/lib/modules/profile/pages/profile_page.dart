@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/api_client.dart';
-import '../../../core/services/task_reminder_service.dart';
+import '../../../core/notifications/task_reminder_service.dart';
 import '../../../core/utils/time_format.dart';
 import '../../auth/services/auth_service.dart';
 
@@ -62,6 +62,16 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('已设置每日 ${formatTimeZh(picked)} 提醒')),
+    );
+  }
+
+  Future<void> _sendTestNotification() async {
+    setState(() => _savingReminder = true);
+    await TaskReminderService.instance.showTestNotification();
+    if (!mounted) return;
+    setState(() => _savingReminder = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('已发送测试通知，请查看系统通知栏')),
     );
   }
 
@@ -126,7 +136,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                 margin: const EdgeInsets.only(bottom: 8),
                 child: SwitchListTile(
                   title: const Text('每日任务提醒'),
-                  subtitle: Text('每天 ${formatTimeZh(_reminderTime)} 弹窗汇总待办'),
+                  subtitle: Text('每天 ${formatTimeZh(_reminderTime)} 系统通知汇总待办'),
                   value: _reminderEnabled,
                   onChanged: _savingReminder ? null : _toggleReminder,
                 ),
@@ -142,6 +152,19 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                       : const Icon(Icons.chevron_right),
                   enabled: _reminderEnabled && !_savingReminder,
                   onTap: _reminderEnabled && !_savingReminder ? _pickReminderTime : null,
+                ),
+              ),
+              Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                child: ListTile(
+                  leading: const Icon(Icons.notifications_active_outlined, color: AppColors.primary),
+                  title: const Text('发送测试通知'),
+                  subtitle: const Text('验证系统通知栏是否正常显示'),
+                  trailing: _savingReminder
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.chevron_right),
+                  enabled: !_savingReminder,
+                  onTap: _savingReminder ? null : _sendTestNotification,
                 ),
               ),
             ],

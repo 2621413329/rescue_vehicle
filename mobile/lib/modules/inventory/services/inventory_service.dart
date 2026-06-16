@@ -10,7 +10,7 @@ class InventoryApiService {
   RiskLevel _risk(Map<String, dynamic> json) {
     if (json['is_expired'] == true) return RiskLevel.danger;
     if (json['is_near_expiry'] == true) return RiskLevel.attention;
-    if (json['is_low_stock'] == true) return RiskLevel.lowStock;
+    // 暂时隐藏库存不足标签
     return RiskLevel.normal;
   }
 
@@ -63,7 +63,13 @@ class InventoryApiService {
   }
 
   Future<List<Map<String, dynamic>>> fetchTimeline(int id) async {
-    return (await _api.getList('/inventories/$id/timeline')).cast<Map<String, dynamic>>();
+    final items = (await _api.getList('/inventories/$id/timeline')).cast<Map<String, dynamic>>();
+    items.sort((a, b) {
+      final ta = a['time'] as String? ?? '';
+      final tb = b['time'] as String? ?? '';
+      return tb.compareTo(ta);
+    });
+    return items;
   }
 
   Future<List<Map<String, dynamic>>> fetchItems() async {

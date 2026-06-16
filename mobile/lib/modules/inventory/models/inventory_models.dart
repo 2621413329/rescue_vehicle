@@ -1,4 +1,5 @@
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/layer_format.dart';
 
 enum InventoryFilter { all, nearExpiry, expired, needLabel, needReplace }
 
@@ -43,13 +44,17 @@ class InventoryItem {
 
   bool get needsReplace => isExpired || remainingDays <= 0;
 
-  bool get needsLabel =>
-      labelStatus.contains('待') || labelStatus.contains('更新') || labelStatus.contains('需立即');
+  /// 效期 180 天内需贴/更新标签；已完成贴标任务则不再提示。
+  bool get needsLabel {
+    if (taskLabelDone) return false;
+    if (needsReplace) return false;
+    return remainingDays <= 180;
+  }
 
   String get layerDisplay {
-    if (layerNo != null) return '$layerNo';
+    if (layerNo != null) return formatLayerNo(layerNo);
     final match = RegExp(r'第?(\d+)').firstMatch(layerName);
-    if (match != null) return match.group(1)!;
+    if (match != null) return formatLayerNo(int.tryParse(match.group(1)!));
     return layerName.isEmpty ? '-' : layerName;
   }
 }

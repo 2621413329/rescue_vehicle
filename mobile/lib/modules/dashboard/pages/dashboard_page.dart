@@ -58,7 +58,7 @@ class _Header extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '抢救车效期',
+              '救备通',
               style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 13),
             ),
             const SizedBox(height: 4),

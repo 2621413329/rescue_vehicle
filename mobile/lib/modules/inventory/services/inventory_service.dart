@@ -28,6 +28,10 @@ class InventoryApiService {
         riskLevel: _risk(json),
         labelStatus: json['label_status_text'] as String? ?? '',
         managerName: json['manager_name'] as String?,
+        taskReplaceDone: json['task_replace_done'] as bool? ?? false,
+        taskLabelDone: json['task_label_done'] as bool? ?? false,
+        isExpired: json['is_expired'] as bool? ?? false,
+        isNearExpiry: json['is_near_expiry'] as bool? ?? false,
       );
 
   Future<List<InventoryItem>> fetchList({InventoryFilter filter = InventoryFilter.all, int? layerId}) async {
@@ -45,10 +49,10 @@ class InventoryApiService {
     final items = data['items'] as List<dynamic>? ?? [];
     var list = items.map((e) => _fromJson(e as Map<String, dynamic>)).toList();
     if (filter == InventoryFilter.needLabel) {
-      list = list.where((e) => e.labelStatus.contains('待') || e.labelStatus.contains('更新')).toList();
+      list = list.where((e) => e.needsLabel).toList();
     }
     if (filter == InventoryFilter.needReplace) {
-      list = list.where((e) => e.remainingDays <= 90).toList();
+      list = list.where((e) => e.needsReplace).toList();
     }
     return list;
   }
@@ -120,10 +124,16 @@ class InventoryApiService {
     required int id,
     required String action,
     String? remark,
+    String? expiryDate,
+    String? batchNo,
+    num? quantity,
   }) async {
     await _api.post('/inventories/$id/task-actions', data: {
       'action': action,
       if (remark != null && remark.isNotEmpty) 'remark': remark,
+      if (expiryDate != null && expiryDate.isNotEmpty) 'expiry_date': expiryDate,
+      if (batchNo != null && batchNo.isNotEmpty) 'batch_no': batchNo,
+      if (quantity != null) 'quantity': quantity,
     });
   }
 }

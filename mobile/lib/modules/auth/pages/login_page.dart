@@ -69,7 +69,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               const Spacer(),
               const Icon(Icons.medical_services_outlined, size: 64, color: AppColors.primary),
               const SizedBox(height: 16),
-              const Text('抢救车效期管理', textAlign: TextAlign.center, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
+              const Text('抢救车效期', textAlign: TextAlign.center, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
               const Text('任务驱动 · 风险预警 · 效期追溯', textAlign: TextAlign.center, style: TextStyle(color: AppColors.textSecondary)),
               const SizedBox(height: 8),
               Text(

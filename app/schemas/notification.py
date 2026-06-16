@@ -55,7 +55,11 @@ class TodayTasksOut(BaseModel):
     pending_inspection: int
     completed_inspection: int
     pending_replace: int
+    completed_replace: int = 0
+    total_replace: int = 0
     pending_labels: int
+    completed_labels: int = 0
+    total_labels: int = 0
     low_stock: int
     pending_confirm: int
     pending_exceptions: int

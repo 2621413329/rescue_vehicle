@@ -23,6 +23,8 @@ class MedicineItem {
     required this.itemType,
     required this.isEnabled,
     required this.updatedAt,
+    required this.warningDays,
+    this.defaultWarningTag,
     this.operatorName,
     this.inUse = false,
   });
@@ -34,6 +36,8 @@ class MedicineItem {
         itemType: json['item_type'] as String? ?? ItemTypeLabels.medicine,
         isEnabled: json['is_enabled'] as bool? ?? true,
         updatedAt: '${json['updated_at'] ?? ''}',
+        warningDays: json['warning_days'] as int? ?? 180,
+        defaultWarningTag: json['default_warning_tag'] as String?,
         operatorName: json['operator_name'] as String?,
         inUse: json['in_use'] as bool? ?? false,
       );
@@ -44,10 +48,14 @@ class MedicineItem {
   final String itemType;
   final bool isEnabled;
   final String updatedAt;
+  final int warningDays;
+  final String? defaultWarningTag;
   final String? operatorName;
   final bool inUse;
 
   String get typeLabel => ItemTypeLabels.label(itemType);
+
+  String get warningLabel => defaultWarningTag ?? '${warningDays}天预警';
 
   String get updatedAtDisplay {
     if (updatedAt.length >= 16) return updatedAt.substring(0, 16).replaceFirst('T', ' ');

@@ -10,6 +10,7 @@ class TaskCard extends StatelessWidget {
     required this.count,
     required this.color,
     required this.onTap,
+    this.subLabel,
   });
 
   final IconData icon;
@@ -17,6 +18,7 @@ class TaskCard extends StatelessWidget {
   final int count;
   final Color color;
   final VoidCallback onTap;
+  final String? subLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -57,6 +59,10 @@ class TaskCard extends StatelessWidget {
                 label,
                 style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
               ),
+              if (subLabel != null) ...[
+                const SizedBox(height: 2),
+                Text(subLabel!, style: TextStyle(fontSize: 11, color: color.withValues(alpha: 0.85))),
+              ],
             ],
           ),
         ),

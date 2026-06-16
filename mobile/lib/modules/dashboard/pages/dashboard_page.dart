@@ -42,6 +42,7 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = data.todayTasks;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
@@ -58,7 +59,7 @@ class _Header extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '抢救车效期管理',
+              '抢救车效期',
               style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 13),
             ),
             const SizedBox(height: 4),
@@ -69,9 +70,9 @@ class _Header extends StatelessWidget {
             const SizedBox(height: 16),
             Row(
               children: [
-                _headerStat('待更换', '${data.todayTasks.pendingReplace}'),
+                _headerStat('待更换', '${t.completedReplace}/${t.totalReplace}', sub: '已完成/待更换'),
                 const SizedBox(width: 24),
-                _headerStat('待贴标签', '${data.todayTasks.pendingLabels}'),
+                _headerStat('待贴标签', '${t.completedLabels}/${t.totalLabels}', sub: '已完成/待贴标签'),
               ],
             ),
           ],
@@ -80,12 +81,14 @@ class _Header extends StatelessWidget {
     );
   }
 
-  Widget _headerStat(String label, String value) {
+  Widget _headerStat(String label, String value, {String? sub}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 12)),
         Text(value, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+        if (sub != null)
+          Text(sub, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 10)),
       ],
     );
   }
@@ -112,8 +115,22 @@ class _TodayTasksSection extends StatelessWidget {
             crossAxisSpacing: 12,
             childAspectRatio: 1.35,
             children: [
-              TaskCard(icon: Icons.sync_alt, label: '待更换', count: t.pendingReplace, color: AppColors.danger, onTap: () => context.push('/warning')),
-              TaskCard(icon: Icons.label_outline, label: '待贴标签', count: t.pendingLabels, color: AppColors.warning, onTap: () => context.push('/label')),
+              TaskCard(
+                icon: Icons.sync_alt,
+                label: '待更换',
+                count: t.pendingReplace,
+                subLabel: '${t.completedReplace}/${t.totalReplace} 已完成',
+                color: AppColors.danger,
+                onTap: () => context.push('/warning'),
+              ),
+              TaskCard(
+                icon: Icons.label_outline,
+                label: '待贴标签',
+                count: t.pendingLabels,
+                subLabel: '${t.completedLabels}/${t.totalLabels} 已完成',
+                color: AppColors.warning,
+                onTap: () => context.push('/label'),
+              ),
             ],
           ),
         ),
@@ -202,17 +219,18 @@ class _ExpiryForecastSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionHeader(title: '未来效期计划'),
+        const SectionHeader(title: '未来有效期计划'),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
-                children: forecasts.map((f) {
-                  final max = forecasts.first.count.toDouble();
-                  final ratio = max == 0 ? 0.0 : f.count / max;
-                  return Padding(
+                children: () {
+                  final maxCount = forecasts.fold<int>(0, (m, f) => f.count > m ? f.count : m);
+                  return forecasts.map((f) {
+                    final ratio = maxCount == 0 ? 0.0 : f.count / maxCount;
+                    return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: Row(
                       children: [
@@ -233,7 +251,8 @@ class _ExpiryForecastSection extends StatelessWidget {
                       ],
                     ),
                   );
-                }).toList(),
+                }).toList();
+                }(),
               ),
             ),
           ),

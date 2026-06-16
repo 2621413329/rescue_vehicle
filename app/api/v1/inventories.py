@@ -7,7 +7,13 @@ from app.core.database import get_db
 from app.core.permissions import Permission, require_permission
 from app.models.user import User
 from app.schemas.common import MessageResponse, PageResult
-from app.schemas.inventory import InventoryCreate, InventoryDetailOut, InventoryQuery, InventoryUpdate
+from app.schemas.inventory import (
+    InventoryCreate,
+    InventoryDetailOut,
+    InventoryQuery,
+    InventoryUpdate,
+    TaskActionRequest,
+)
 from app.schemas.item import OperationReasonOut
 from app.services.inventory_service import InventoryService
 from app.services.label_service import TimelineService
@@ -86,11 +92,6 @@ def inventory_timeline(
     return TimelineService(db).inventory_timeline(inventory_id)
 
 
-class TaskActionRequest(BaseModel):
-    action: str
-    remark: str | None = None
-
-
 @router.post("/{inventory_id}/task-actions", response_model=InventoryDetailOut)
 def mark_inventory_task_action(
     inventory_id: int,
@@ -105,4 +106,7 @@ def mark_inventory_task_action(
         current_user,
         body.remark,
         get_client_ip(request),
+        expiry_date=body.expiry_date,
+        batch_no=body.batch_no,
+        quantity=body.quantity,
     )

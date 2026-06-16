@@ -138,6 +138,7 @@ class _ItemListPageState extends ConsumerState<ItemListPage> {
                             children: [
                               const SizedBox(height: 4),
                               Text('类型：${item.typeLabel}'),
+                              Text('预警期限：${item.warningLabel}'),
                               Text('操作人：${item.operatorName ?? '-'}'),
                               Text('更新时间：${item.updatedAtDisplay}'),
                               if (item.inUse) const Text('已关联库存', style: TextStyle(color: AppColors.warning)),
@@ -195,9 +196,11 @@ class ItemEditPage extends ConsumerStatefulWidget {
 class _ItemEditPageState extends ConsumerState<ItemEditPage> {
   final _name = TextEditingController();
   String _type = ItemTypeLabels.medicine;
+  int _warningDays = 180;
   bool _loading = false;
   bool _submitting = false;
   MedicineItem? _item;
+  int? _initialWarningDays;
 
   bool get _isEdit => widget.id != null;
 
@@ -222,6 +225,8 @@ class _ItemEditPageState extends ConsumerState<ItemEditPage> {
       final item = await ref.read(itemServiceProvider).fetchDetail(widget.id!);
       _name.text = item.itemName;
       _type = item.itemType;
+      _warningDays = item.warningDays;
+      _initialWarningDays = item.warningDays;
       _item = item;
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('加载失败: $e')));
@@ -240,9 +245,17 @@ class _ItemEditPageState extends ConsumerState<ItemEditPage> {
     try {
       final svc = ref.read(itemServiceProvider);
       if (_isEdit) {
-        await svc.update(id: widget.id!, itemName: name, itemType: _type);
+        await svc.update(
+          id: widget.id!,
+          itemName: name,
+          itemType: _type,
+          warningDays: _warningDays,
+          operationReason: _initialWarningDays != null && _initialWarningDays != _warningDays
+              ? '移动端修改预警期限'
+              : null,
+        );
       } else {
-        await svc.create(itemName: name, itemType: _type);
+        await svc.create(itemName: name, itemType: _type, warningDays: _warningDays);
       }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('保存成功')));
@@ -304,6 +317,18 @@ class _ItemEditPageState extends ConsumerState<ItemEditPage> {
             options: ItemTypeLabels.all
                 .map((t) => SegmentChipItem(value: t, label: ItemTypeLabels.label(t)))
                 .toList(),
+          ),
+          const SizedBox(height: 16),
+          const Text('预警期限（天）', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+          const SizedBox(height: 10),
+          SegmentChipBar(
+            selectedValue: '$_warningDays',
+            onSelected: (v) => setState(() => _warningDays = int.parse(v)),
+            items: const [
+              SegmentChipItem(value: '90', label: '90天'),
+              SegmentChipItem(value: '180', label: '180天'),
+              SegmentChipItem(value: '365', label: '365天'),
+            ],
           ),
           if (_isEdit && _item != null) ...[
             const SizedBox(height: 16),

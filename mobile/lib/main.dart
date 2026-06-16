@@ -36,7 +36,7 @@ class _RescueAppState extends ConsumerState<RescueApp> {
   Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
     return MaterialApp.router(
-      title: '抢救车效期管理',
+      title: '抢救车效期',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       routerConfig: router,

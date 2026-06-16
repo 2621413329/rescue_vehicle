@@ -34,10 +34,14 @@ class ItemApiService {
   Future<MedicineItem> create({
     required String itemName,
     required String itemType,
+    int warningDays = 180,
+    String? defaultWarningTag,
   }) async {
     final data = await _api.post('/items', data: {
       'item_name': itemName,
       'item_type': itemType,
+      'warning_days': warningDays,
+      if (defaultWarningTag != null && defaultWarningTag.isNotEmpty) 'default_warning_tag': defaultWarningTag,
     });
     return MedicineItem.fromJson(data);
   }
@@ -46,10 +50,16 @@ class ItemApiService {
     required int id,
     required String itemName,
     required String itemType,
+    int? warningDays,
+    String? defaultWarningTag,
+    String? operationReason,
   }) async {
     final data = await _api.put('/items/$id', data: {
       'item_name': itemName,
       'item_type': itemType,
+      if (warningDays != null) 'warning_days': warningDays,
+      if (defaultWarningTag != null) 'default_warning_tag': defaultWarningTag,
+      if (operationReason != null && operationReason.isNotEmpty) 'operation_reason': operationReason,
     });
     return MedicineItem.fromJson(data);
   }

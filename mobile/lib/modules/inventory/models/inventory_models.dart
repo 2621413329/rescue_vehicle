@@ -17,6 +17,10 @@ class InventoryItem {
     required this.riskLevel,
     required this.labelStatus,
     this.managerName,
+    this.taskReplaceDone = false,
+    this.taskLabelDone = false,
+    this.isExpired = false,
+    this.isNearExpiry = false,
   });
 
   final int id;
@@ -32,6 +36,16 @@ class InventoryItem {
   final RiskLevel riskLevel;
   final String labelStatus;
   final String? managerName;
+  final bool taskReplaceDone;
+  final bool taskLabelDone;
+  final bool isExpired;
+  final bool isNearExpiry;
+
+  bool get needsReplace =>
+      isExpired || isNearExpiry || remainingDays <= 90;
+
+  bool get needsLabel =>
+      labelStatus.contains('待') || labelStatus.contains('更新') || labelStatus.contains('需立即');
 
   String get layerDisplay {
     if (layerNo != null) return '$layerNo';

@@ -11,6 +11,7 @@ class WarningCard extends StatelessWidget {
     required this.level,
     required this.time,
     this.onTap,
+    this.statusBadges,
   });
 
   final String title;
@@ -18,6 +19,7 @@ class WarningCard extends StatelessWidget {
   final RiskLevel level;
   final String time;
   final VoidCallback? onTap;
+  final Widget? statusBadges;
 
   @override
   Widget build(BuildContext context) {
@@ -36,7 +38,16 @@ class WarningCard extends StatelessWidget {
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
         subtitle: Padding(
           padding: const EdgeInsets.only(top: 4),
-          child: Text(subtitle, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(subtitle, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+              if (statusBadges != null) ...[
+                const SizedBox(height: 6),
+                statusBadges!,
+              ],
+            ],
+          ),
         ),
         trailing: Column(
           mainAxisAlignment: MainAxisAlignment.center,

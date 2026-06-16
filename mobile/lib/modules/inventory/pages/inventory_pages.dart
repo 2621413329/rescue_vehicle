@@ -3,10 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/providers/default_cart_provider.dart';
+import '../../../core/utils/task_actions.dart';
 import '../../../shared/widgets/audit_timeline.dart';
 import '../../../shared/widgets/expiry_date_field.dart';
 import '../../../shared/widgets/inventory_card.dart';
 import '../../../shared/widgets/segment_chip_bar.dart';
+import '../../../shared/widgets/task_status_badges.dart';
 import '../models/inventory_models.dart';
 import '../providers/inventory_provider.dart';
 
@@ -75,6 +77,10 @@ class InventoryListPage extends ConsumerWidget {
                   riskLevel: items[i].riskLevel,
                   labelStatus: items[i].labelStatus,
                   managerName: items[i].managerName,
+                  taskReplaceDone: items[i].taskReplaceDone,
+                  taskLabelDone: items[i].taskLabelDone,
+                  needsReplace: items[i].needsReplace,
+                  needsLabel: items[i].needsLabel,
                   onTap: () => context.push('/inventory/${items[i].id}'),
                 ),
               ),
@@ -127,19 +133,29 @@ class _LayerFilterBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (layers.isEmpty) return const SizedBox.shrink();
     final sorted = [...layers]..sort((a, b) => (a['layer_no'] as int? ?? 0).compareTo(b['layer_no'] as int? ?? 0));
+    final byNo = <int, Map<String, dynamic>>{
+      for (final l in sorted)
+        if (l['layer_no'] != null) l['layer_no'] as int: l,
+    };
     return SegmentChipBar(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
       compact: true,
       selectedValue: currentLayerId?.toString() ?? 'all',
-      onSelected: (v) => onChanged(v == 'all' ? null : int.parse(v)),
+      onSelected: (v) {
+        if (v == 'all') {
+          onChanged(null);
+        } else if (byNo.values.any((l) => '${l['id']}' == v)) {
+          onChanged(int.parse(v));
+        }
+      },
       items: [
         const SegmentChipItem(value: 'all', label: '全部'),
-        ...sorted.map((layer) {
-          final id = layer['id'] as int;
-          return SegmentChipItem(value: '$id', label: layerNoLabel(layer));
-        }),
+        for (var n = 1; n <= 5; n++)
+          SegmentChipItem(
+            value: byNo[n] != null ? '${byNo[n]!['id']}' : 'none_$n',
+            label: '$n',
+          ),
       ],
     );
   }
@@ -183,6 +199,44 @@ class InventoryDetailPage extends ConsumerWidget {
                 riskLevel: item.riskLevel,
                 labelStatus: item.labelStatus,
                 managerName: item.managerName,
+              ),
+              const SizedBox(height: 12),
+              TaskStatusBadges(
+                replaceDone: item.taskReplaceDone,
+                labelDone: item.taskLabelDone,
+                needsReplace: item.needsReplace,
+                needsLabel: item.needsLabel,
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: item.taskReplaceDone
+                          ? null
+                          : () => performReplaceTask(
+                                context,
+                                ref,
+                                inventoryId: id,
+                                itemName: item.itemName,
+                                batchNo: item.batchNo,
+                                quantity: '${item.quantity}',
+                              ),
+                      icon: const Icon(Icons.sync_alt, size: 18),
+                      label: Text(item.taskReplaceDone ? '已更换' : '标记已更换'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: item.taskLabelDone
+                          ? null
+                          : () => performLabelTask(context, ref, inventoryId: id, itemName: item.itemName),
+                      icon: const Icon(Icons.label_outline, size: 18),
+                      label: Text(item.taskLabelDone ? '已贴标签' : '标记已贴标签'),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 20),
               const Text('生命周期', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),

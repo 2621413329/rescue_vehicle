@@ -78,6 +78,21 @@ def calculate_label_status(remaining_days: int | None) -> dict[str, str]:
     return {"label_status": "GREEN", "label_status_text": "标签正常"}
 
 
+def inventory_needs_replace(remaining_days: int | None, is_expired: bool = False, is_near_expiry: bool = False) -> bool:
+    if is_expired or is_near_expiry:
+        return True
+    return remaining_days is not None and remaining_days <= 90
+
+
+def inventory_needs_label(remaining_days: int | None, has_print: bool = False) -> bool:
+    ls = calculate_label_status(remaining_days)
+    if ls["label_status"] in ("RED", "YELLOW"):
+        return True
+    if not has_print and remaining_days is not None and remaining_days <= 180:
+        return True
+    return False
+
+
 def needs_label_action(remaining_days: int | None, last_print_days: int | None = None) -> str | None:
     if remaining_days is None:
         return None

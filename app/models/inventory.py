@@ -37,6 +37,10 @@ class Inventory(Base, TimestampMixin, SoftDeleteMixin):
     is_low_stock: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
     remark: Mapped[str | None] = mapped_column(Text, nullable=True)
     last_check_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    task_replace_done: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    task_label_done: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    task_replace_done_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    task_label_done_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_by: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
     updated_by: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
 

@@ -24,7 +24,12 @@ from app.schemas.item import OperationReasonOut
 from app.services.audit_service import AuditService, OperationReasonService
 from app.services.extended_service import NotificationGenerator
 from app.services.label_service import LabelService
-from app.utils.helpers import calculate_expiry_fields, calculate_label_status, calculate_low_stock
+from app.utils.helpers import (
+    calculate_expiry_fields,
+    calculate_label_status,
+    calculate_low_stock,
+    inventory_needs_replace,
+)
 
 
 class InventoryService:
@@ -51,6 +56,11 @@ class InventoryService:
         inventory.is_near_expiry = expiry_fields["is_near_expiry"]
         inventory.is_expired = expiry_fields["is_expired"]
         inventory.is_low_stock = calculate_low_stock(inventory.quantity, inventory.minimum_quantity)
+        if not inventory_needs_replace(
+            inventory.remaining_days, inventory.is_expired, inventory.is_near_expiry
+        ):
+            inventory.task_replace_done = False
+            inventory.task_replace_done_at = None
 
     def _to_detail(self, inventory: Inventory) -> InventoryDetailOut:
         item = self.item_repo.get_by_id(inventory.item_id)
@@ -250,26 +260,58 @@ class InventoryService:
         operator: User,
         remark: str | None = None,
         ip_address: str | None = None,
+        expiry_date=None,
+        batch_no: str | None = None,
+        quantity=None,
     ) -> InventoryDetailOut:
         inventory = self.repo.get_by_id(inventory_id)
         if not inventory:
             raise HTTPException(status_code=404, detail="库存不存在")
         self._check_cart_access(operator, inventory.cart_id)
+        now = datetime.now(timezone.utc)
 
         if action == "LABEL_DONE":
             reason = remark or "任务通知标记：已贴标签"
             LabelService(self.db).print_labels([inventory_id], operator, remark=reason)
-        elif action == "REPLACE_DONE":
-            inventory.last_check_time = datetime.now(timezone.utc)
+            inventory = self.repo.get_by_id(inventory_id)
+            if not inventory:
+                raise HTTPException(status_code=404, detail="库存不存在")
+            inventory.task_label_done = True
+            inventory.task_label_done_at = now
             inventory.updated_by = operator.id
-            reason = remark or "任务通知标记：已完成更换"
+        elif action == "REPLACE_DONE":
+            if expiry_date is None:
+                raise HTTPException(status_code=400, detail="更换药品必须填写新有效期")
+            old_snapshot = {
+                "expiry_date": inventory.expiry_date.isoformat() if inventory.expiry_date else None,
+                "batch_no": inventory.batch_no,
+                "quantity": float(inventory.quantity),
+            }
+            inventory.expiry_date = expiry_date
+            if batch_no:
+                inventory.batch_no = batch_no
+            if quantity is not None:
+                inventory.quantity = quantity
+            inventory.last_check_time = now
+            inventory.updated_by = operator.id
+            inventory.task_replace_done = True
+            inventory.task_replace_done_at = now
+            inventory.task_label_done = False
+            inventory.task_label_done_at = None
+            self._apply_calculations(inventory)
+            reason = remark or "已完成更换并录入新效期"
             AuditService.log(
                 self.db,
                 module="inventory",
                 business_id=inventory_id,
                 operation_type=OperationType.REPLACE_DONE,
-                old_data=None,
-                new_data={"action": "REPLACE_DONE", "remark": reason},
+                old_data=old_snapshot,
+                new_data={
+                    "expiry_date": inventory.expiry_date.isoformat() if inventory.expiry_date else None,
+                    "batch_no": inventory.batch_no,
+                    "quantity": float(inventory.quantity),
+                    "remark": reason,
+                },
                 operator_id=operator.id,
                 operator_name=operator.real_name,
                 ip_address=ip_address,

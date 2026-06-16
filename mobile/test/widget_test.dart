@@ -6,6 +6,6 @@ import 'package:rescue_mobile/main.dart';
 void main() {
   testWidgets('App smoke test', (tester) async {
     await tester.pumpWidget(const ProviderScope(child: RescueApp()));
-    expect(find.text('抢救车效期管理'), findsOneWidget);
+    expect(find.text('抢救车效期'), findsOneWidget);
   });
 }

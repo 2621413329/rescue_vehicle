@@ -14,7 +14,7 @@ from app.models.item import Item
 from app.models.label import LabelPrintRecord
 from app.models.notification import Notification
 from app.models.user import User
-from app.utils.helpers import calculate_label_status
+from app.utils.helpers import calculate_label_status, inventory_needs_label, inventory_needs_replace
 
 
 class RiskService:
@@ -215,6 +215,8 @@ class DashboardExtendedService:
         for period, start, end in ranges:
             items = []
             for inv, item in rows:
+                if inv.task_replace_done:
+                    continue
                 if inv.expiry_date and start <= inv.expiry_date <= end:
                     items.append(f"{item.item_name}×{int(inv.quantity)}")
             plans.append({"period": period, "count": len(items), "items": items[:5]})
@@ -228,25 +230,35 @@ class DashboardExtendedService:
             )
         inventories = list(self.db.scalars(stmt).all())
         pending, need_update, need_print = 0, 0, 0
+        completed_labels = 0
+        total_labels = 0
         for inv in inventories:
-            ls = calculate_label_status(inv.remaining_days)
-            if ls["label_status"] == "RED":
-                need_update += 1
-            elif ls["label_status"] == "YELLOW":
-                need_update += 1
             has_print = self.db.scalar(
                 select(func.count())
                 .select_from(LabelPrintRecord)
                 .where(LabelPrintRecord.inventory_id == inv.id)
             )
+            needs = inventory_needs_label(inv.remaining_days, bool(has_print))
+            if not needs and not inv.task_label_done:
+                continue
+            total_labels += 1
+            if inv.task_label_done:
+                completed_labels += 1
+            ls = calculate_label_status(inv.remaining_days)
+            if ls["label_status"] == "RED":
+                need_update += 1
+            elif ls["label_status"] == "YELLOW":
+                need_update += 1
             if not has_print and inv.remaining_days and inv.remaining_days <= 180:
                 need_print += 1
-            if not has_print:
+            if not has_print and not inv.task_label_done:
                 pending += 1
         return {
             "label_pending": pending,
             "label_need_update": need_update,
             "label_need_print": need_print,
+            "label_completed": completed_labels,
+            "label_total": total_labels,
         }
 
     def today_tasks(self, department_id: int | None) -> dict:
@@ -285,10 +297,28 @@ class DashboardExtendedService:
             )
         inventories = list(self.db.scalars(inv_stmt).all())
 
-        pending_replace = sum(1 for i in inventories if i.remaining_days is not None and i.remaining_days <= 90)
-        pending_labels = sum(
-            1 for i in inventories if calculate_label_status(i.remaining_days)["label_status"] != "GREEN"
-        )
+        replace_items = [
+            i
+            for i in inventories
+            if inventory_needs_replace(i.remaining_days, i.is_expired, i.is_near_expiry)
+        ]
+        total_replace = len(replace_items)
+        completed_replace = sum(1 for i in replace_items if i.task_replace_done)
+        pending_replace = total_replace - completed_replace
+
+        label_items = []
+        for inv in inventories:
+            has_print = self.db.scalar(
+                select(func.count())
+                .select_from(LabelPrintRecord)
+                .where(LabelPrintRecord.inventory_id == inv.id)
+            )
+            if inventory_needs_label(inv.remaining_days, bool(has_print)) or inv.task_label_done:
+                label_items.append(inv)
+        total_labels = len(label_items)
+        completed_labels = sum(1 for i in label_items if i.task_label_done)
+        pending_labels = total_labels - completed_labels
+
         low_stock = sum(1 for i in inventories if i.is_low_stock)
         pending_confirm = sum(
             1 for i in inventories if i.last_check_time is None or i.last_check_time < today_start
@@ -298,7 +328,11 @@ class DashboardExtendedService:
             "pending_inspection": pending_inspection,
             "completed_inspection": completed,
             "pending_replace": pending_replace,
+            "completed_replace": completed_replace,
+            "total_replace": total_replace,
             "pending_labels": pending_labels,
+            "completed_labels": completed_labels,
+            "total_labels": total_labels,
             "low_stock": low_stock,
             "pending_confirm": min(pending_confirm, 99),
             "pending_exceptions": sum(1 for i in inventories if i.is_expired),

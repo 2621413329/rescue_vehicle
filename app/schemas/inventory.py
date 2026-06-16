@@ -52,6 +52,10 @@ class InventoryOut(ORMModel):
     is_low_stock: bool
     remark: str | None
     last_check_time: datetime | None
+    task_replace_done: bool = False
+    task_label_done: bool = False
+    task_replace_done_at: datetime | None = None
+    task_label_done_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -79,3 +83,11 @@ class InventoryQuery(PageParams):
     is_expired: bool | None = None
     operator_id: int | None = None
     keyword: str | None = None
+
+
+class TaskActionRequest(BaseModel):
+    action: str
+    remark: str | None = None
+    expiry_date: date | None = None
+    batch_no: str | None = None
+    quantity: Decimal | None = Field(default=None, ge=0)

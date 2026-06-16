@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import 'expiry_badge.dart';
 import 'risk_tag.dart';
+import 'task_status_badges.dart';
 
 class InventoryCard extends StatefulWidget {
   const InventoryCard({
@@ -19,6 +20,10 @@ class InventoryCard extends StatefulWidget {
     required this.labelStatus,
     this.managerName,
     this.onTap,
+    this.taskReplaceDone = false,
+    this.taskLabelDone = false,
+    this.needsReplace = false,
+    this.needsLabel = false,
   });
 
   final String itemName;
@@ -33,6 +38,10 @@ class InventoryCard extends StatefulWidget {
   final String labelStatus;
   final String? managerName;
   final VoidCallback? onTap;
+  final bool taskReplaceDone;
+  final bool taskLabelDone;
+  final bool needsReplace;
+  final bool needsLabel;
 
   @override
   State<InventoryCard> createState() => _InventoryCardState();
@@ -75,6 +84,15 @@ class _InventoryCardState extends State<InventoryCard> {
                   ExpiryBadge(remainingDays: widget.remainingDays),
                 ],
               ),
+              if (widget.needsReplace || widget.needsLabel || widget.taskReplaceDone || widget.taskLabelDone) ...[
+                const SizedBox(height: 8),
+                TaskStatusBadges(
+                  replaceDone: widget.taskReplaceDone,
+                  labelDone: widget.taskLabelDone,
+                  needsReplace: widget.needsReplace,
+                  needsLabel: widget.needsLabel,
+                ),
+              ],
               const SizedBox(height: 8),
               Row(
                 children: [

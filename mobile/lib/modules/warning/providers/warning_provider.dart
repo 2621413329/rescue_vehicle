@@ -6,17 +6,31 @@ import '../../../core/network/api_client.dart';
 class WarningTask {
   const WarningTask({
     required this.inventoryId,
+    required this.itemName,
     required this.title,
     required this.subtitle,
     required this.category,
     required this.time,
+    required this.taskReplaceDone,
+    required this.taskLabelDone,
+    required this.needsReplace,
+    required this.needsLabel,
+    this.batchNo,
+    this.quantity,
   });
 
   final int inventoryId;
+  final String itemName;
   final String title;
   final String subtitle;
   final WarningCategory category;
   final String time;
+  final bool taskReplaceDone;
+  final bool taskLabelDone;
+  final bool needsReplace;
+  final bool needsLabel;
+  final String? batchNo;
+  final String? quantity;
 }
 
 enum WarningCategory { nearExpiry, expired, labelUpdate, replace }
@@ -28,65 +42,88 @@ RiskLevel categoryLevel(WarningCategory c) => switch (c) {
       WarningCategory.replace => RiskLevel.danger,
     };
 
-WarningTask _taskFromInventory(Map<String, dynamic> m, WarningCategory category) {
+WarningCategory _primaryCategory(Map<String, dynamic> m) {
+  if (m['is_expired'] == true) return WarningCategory.expired;
+  if (m['is_near_expiry'] == true) return WarningCategory.nearExpiry;
+  final days = m['remaining_days'] as int? ?? 999;
+  if (days <= 90) return WarningCategory.replace;
+  return WarningCategory.labelUpdate;
+}
+
+String _titleFor(Map<String, dynamic> m, WarningCategory category) {
+  final name = m['item_name'] as String? ?? '未知药品';
+  return switch (category) {
+    WarningCategory.expired => '$name 已过期',
+    WarningCategory.nearExpiry => '$name 临近效期',
+    WarningCategory.replace => '$name 待更换',
+    WarningCategory.labelUpdate => '$name 待贴标签',
+  };
+}
+
+WarningTask? _taskFromInventory(Map<String, dynamic> m) {
   final name = m['item_name'] as String? ?? '未知药品';
   final layerNo = m['layer_no'] as int?;
   final layerName = m['layer_name'] as String? ?? '';
   final layer = layerNo != null ? '层级 $layerNo' : (layerName.isEmpty ? '' : layerName);
   final days = m['remaining_days'] as int? ?? 0;
   final id = m['id'] as int? ?? 0;
+  final isExpired = m['is_expired'] as bool? ?? false;
+  final isNearExpiry = m['is_near_expiry'] as bool? ?? false;
+  final replaceDone = m['task_replace_done'] as bool? ?? false;
+  final labelDone = m['task_label_done'] as bool? ?? false;
+  final label = m['label_status_text'] as String? ?? '';
+  final needsReplace = isExpired || isNearExpiry || days <= 90;
+  final needsLabel = label.contains('待') || label.contains('更新') || label.contains('需立即');
+
+  if (!needsReplace && !needsLabel && !replaceDone && !labelDone) return null;
+
+  final category = _primaryCategory(m);
   final subtitle = layer.isEmpty ? '剩余 $days 天' : '$layer · 剩余 $days 天';
   return WarningTask(
     inventoryId: id,
-    title: switch (category) {
-      WarningCategory.expired => '$name 已过期',
-      WarningCategory.nearExpiry => '$name 临近效期',
-      WarningCategory.replace => '$name 待更换',
-      WarningCategory.labelUpdate => '$name 待贴标签',
-    },
+    itemName: name,
+    title: _titleFor(m, category),
     subtitle: subtitle,
     category: category,
     time: '',
+    taskReplaceDone: replaceDone,
+    taskLabelDone: labelDone,
+    needsReplace: needsReplace,
+    needsLabel: needsLabel,
+    batchNo: m['batch_no'] as String?,
+    quantity: '${m['quantity'] ?? ''}',
   );
 }
 
 final warningListProvider = FutureProvider<List<WarningTask>>((ref) async {
   final api = ref.watch(apiClientProvider);
-  final tasks = <WarningTask>[];
-
-  Future<void> addFromQuery(Map<String, dynamic> query, WarningCategory category) async {
-    final data = await api.get('/inventories', query: query);
-    final items = data['items'] as List<dynamic>? ?? [];
-    for (final item in items) {
-      tasks.add(_taskFromInventory(item as Map<String, dynamic>, category));
-    }
-  }
-
-  await addFromQuery({'page': 1, 'page_size': 100, 'is_expired': true}, WarningCategory.expired);
-  await addFromQuery({'page': 1, 'page_size': 100, 'is_near_expiry': true}, WarningCategory.nearExpiry);
-
-  final all = await api.get('/inventories', query: {'page': 1, 'page_size': 100});
-  final allItems = all['items'] as List<dynamic>? ?? [];
-  for (final raw in allItems) {
-    final m = raw as Map<String, dynamic>;
-    if (m['is_expired'] == true || m['is_near_expiry'] == true) continue;
-    final days = m['remaining_days'] as int?;
-    final label = m['label_status_text'] as String? ?? '';
-    if (days != null && days <= 90) {
-      tasks.add(_taskFromInventory(m, WarningCategory.replace));
-    } else if (label.contains('待') || label.contains('更新')) {
-      tasks.add(_taskFromInventory(m, WarningCategory.labelUpdate));
-    }
-  }
-
-  final seen = <int>{};
-  return tasks.where((t) => seen.add(t.inventoryId)).toList();
+  final data = await api.get('/inventories', query: {'page': 1, 'page_size': 200});
+  final items = (data['items'] as List<dynamic>? ?? []).cast<Map<String, dynamic>>();
+  return items.map(_taskFromInventory).whereType<WarningTask>().toList();
 });
 
-final warningStatsProvider = FutureProvider<Map<WarningCategory, int>>((ref) async {
+final warningStatsProvider = FutureProvider<Map<String, int>>((ref) async {
   final tasks = await ref.watch(warningListProvider.future);
+  var replaceTotal = 0;
+  var replaceDone = 0;
+  var labelTotal = 0;
+  var labelDone = 0;
+  for (final t in tasks) {
+    if (t.needsReplace) {
+      replaceTotal++;
+      if (t.taskReplaceDone) replaceDone++;
+    }
+    if (t.needsLabel) {
+      labelTotal++;
+      if (t.taskLabelDone) labelDone++;
+    }
+  }
   return {
-    WarningCategory.replace: tasks.where((t) => t.category == WarningCategory.replace).length,
-    WarningCategory.labelUpdate: tasks.where((t) => t.category == WarningCategory.labelUpdate).length,
+    'replaceTotal': replaceTotal,
+    'replaceDone': replaceDone,
+    'replacePending': replaceTotal - replaceDone,
+    'labelTotal': labelTotal,
+    'labelDone': labelDone,
+    'labelPending': labelTotal - labelDone,
   };
 });

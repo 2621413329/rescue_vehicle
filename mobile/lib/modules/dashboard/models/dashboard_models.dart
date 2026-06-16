@@ -5,7 +5,11 @@ class TodayTasks {
     required this.pendingInspection,
     required this.completedInspection,
     required this.pendingReplace,
+    required this.completedReplace,
+    required this.totalReplace,
     required this.pendingLabels,
+    required this.completedLabels,
+    required this.totalLabels,
     required this.lowStock,
     required this.pendingConfirm,
     required this.pendingExceptions,
@@ -15,7 +19,11 @@ class TodayTasks {
         pendingInspection: json['pending_inspection'] as int? ?? 0,
         completedInspection: json['completed_inspection'] as int? ?? 0,
         pendingReplace: json['pending_replace'] as int? ?? 0,
+        completedReplace: json['completed_replace'] as int? ?? 0,
+        totalReplace: json['total_replace'] as int? ?? 0,
         pendingLabels: json['pending_labels'] as int? ?? 0,
+        completedLabels: json['completed_labels'] as int? ?? 0,
+        totalLabels: json['total_labels'] as int? ?? 0,
         lowStock: json['low_stock'] as int? ?? 0,
         pendingConfirm: json['pending_confirm'] as int? ?? 0,
         pendingExceptions: json['pending_exceptions'] as int? ?? 0,
@@ -24,7 +32,11 @@ class TodayTasks {
   final int pendingInspection;
   final int completedInspection;
   final int pendingReplace;
+  final int completedReplace;
+  final int totalReplace;
   final int pendingLabels;
+  final int completedLabels;
+  final int totalLabels;
   final int lowStock;
   final int pendingConfirm;
   final int pendingExceptions;

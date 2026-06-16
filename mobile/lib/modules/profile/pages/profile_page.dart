@@ -54,21 +54,15 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     final picked = await pickTimeZh(context, _reminderTime);
     if (picked == null) return;
     setState(() => _savingReminder = true);
-    try {
-      await TaskReminderService.instance.setReminderTime(picked);
-      if (!mounted) return;
-      setState(() => _reminderTime = picked);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已设置每日 ${formatTimeZh(picked)} 提醒')),
-      );
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('提醒时间保存失败，请检查通知权限后重试')),
-      );
-    } finally {
-      if (mounted) setState(() => _savingReminder = false);
-    }
+    await TaskReminderService.instance.setReminderTime(picked);
+    if (!mounted) return;
+    setState(() {
+      _reminderTime = picked;
+      _savingReminder = false;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('已设置每日 ${formatTimeZh(picked)} 提醒')),
+    );
   }
 
   Future<void> _toggleReminder(bool value) async {
@@ -76,21 +70,12 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       _reminderEnabled = value;
       _savingReminder = true;
     });
-    try {
-      await TaskReminderService.instance.setEnabled(value);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(value ? '已开启每日任务提醒' : '已关闭每日任务提醒')),
-      );
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _reminderEnabled = !value);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('设置失败，请检查通知权限后重试')),
-      );
-    } finally {
-      if (mounted) setState(() => _savingReminder = false);
-    }
+    await TaskReminderService.instance.setEnabled(value);
+    if (!mounted) return;
+    setState(() => _savingReminder = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(value ? '已开启每日任务提醒' : '已关闭每日任务提醒')),
+    );
   }
 
   @override

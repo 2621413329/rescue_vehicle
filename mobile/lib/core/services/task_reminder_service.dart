@@ -42,35 +42,41 @@ class TaskReminderService {
   }
 
   Future<void> _setupAndroidChannel() async {
-    final androidPlugin = await _androidPlugin();
-    if (androidPlugin == null) return;
-    await androidPlugin.createNotificationChannel(
-      const AndroidNotificationChannel(
-        channelId,
-        '每日任务提醒',
-        description: '汇总待更换与待贴标签任务',
-        importance: Importance.max,
-        playSound: true,
-        enableVibration: true,
-        showBadge: true,
-      ),
-    );
-    await androidPlugin.requestNotificationsPermission();
-    await androidPlugin.requestExactAlarmsPermission();
+    try {
+      final androidPlugin = await _androidPlugin();
+      if (androidPlugin == null) return;
+      await androidPlugin.createNotificationChannel(
+        const AndroidNotificationChannel(
+          channelId,
+          '每日任务提醒',
+          description: '汇总待更换与待贴标签任务',
+          importance: Importance.max,
+          playSound: true,
+          enableVibration: true,
+          showBadge: true,
+        ),
+      );
+      await androidPlugin.requestNotificationsPermission();
+    } catch (_) {
+      // 权限未授予时仍可使用应用内弹窗提醒
+    }
   }
 
   Future<void> init() async {
     if (_initialized) return;
-    await _configureLocalTimeZone();
-    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const ios = DarwinInitializationSettings();
-    await _notifications.initialize(
-      const InitializationSettings(android: android, iOS: ios),
-      onDidReceiveNotificationResponse: (_) {},
-    );
-    await _setupAndroidChannel();
-    _initialized = true;
-    await scheduleDailyNotification();
+    try {
+      await _configureLocalTimeZone();
+      const android = AndroidInitializationSettings('@mipmap/ic_launcher');
+      const ios = DarwinInitializationSettings();
+      await _notifications.initialize(
+        const InitializationSettings(android: android, iOS: ios),
+        onDidReceiveNotificationResponse: (_) {},
+      );
+      await _setupAndroidChannel();
+      _initialized = true;
+    } catch (_) {
+      // 初始化失败不影响偏好读写与应用内提醒
+    }
   }
 
   Future<SharedPreferences> _prefs() => SharedPreferences.getInstance();
@@ -80,15 +86,13 @@ class TaskReminderService {
     return prefs.getBool(_keyEnabled) ?? true;
   }
 
+  /// 仅写入偏好，不因通知插件/权限失败而抛错。
   Future<void> setEnabled(bool value) async {
     final prefs = await _prefs();
     await prefs.setBool(_keyEnabled, value);
     if (!value) {
-      await _notifications.cancel(notificationId);
-      await _notifications.cancel(notificationId + 1);
-      return;
+      await _cancelScheduledNotifications();
     }
-    await scheduleDailyNotification();
   }
 
   Future<TimeOfDay> getReminderTime() async {
@@ -99,11 +103,19 @@ class TaskReminderService {
     );
   }
 
+  /// 仅写入偏好，不因通知插件/权限失败而抛错。
   Future<void> setReminderTime(TimeOfDay time) async {
     final prefs = await _prefs();
     await prefs.setInt(_keyHour, time.hour);
     await prefs.setInt(_keyMinute, time.minute);
-    await scheduleDailyNotification();
+  }
+
+  Future<void> _cancelScheduledNotifications() async {
+    if (!_initialized) return;
+    try {
+      await _notifications.cancel(notificationId);
+      await _notifications.cancel(notificationId + 1);
+    } catch (_) {}
   }
 
   String _todayKey(DateTime now) =>
@@ -136,25 +148,19 @@ class TaskReminderService {
         iOS: DarwinNotificationDetails(),
       );
 
-  /// 仅保存偏好，实际推送由应用内定时检查并在有待办时触发。
-  Future<void> scheduleDailyNotification() async {
-    if (!_initialized) {
-      await init();
-      return;
-    }
-    await _notifications.cancel(notificationId);
-  }
-
   Future<void> showDailySummaryNotification({required int replacePending, required int labelPending}) async {
-    if (!_initialized) await init();
     if (!await isEnabled()) return;
     final pending = replacePending + labelPending;
     if (pending <= 0) return;
-    await _notifications.show(
-      notificationId + 1,
-      '今日任务汇总',
-      '待更换 $replacePending 项，待贴标签 $labelPending 项',
-      _notificationDetails,
-    );
+    try {
+      await init();
+      if (!_initialized) return;
+      await _notifications.show(
+        notificationId + 1,
+        '今日任务汇总',
+        '待更换 $replacePending 项，待贴标签 $labelPending 项',
+        _notificationDetails,
+      );
+    } catch (_) {}
   }
 }

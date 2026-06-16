@@ -24,39 +24,61 @@ class WarningCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      child: ListTile(
+      clipBehavior: Clip.antiAlias,
+      margin: EdgeInsets.zero,
+      child: InkWell(
         onTap: onTap,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-        leading: Container(
-          width: 4,
-          height: 48,
-          decoration: BoxDecoration(
-            color: level.color,
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Column(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(subtitle, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-              if (statusBadges != null) ...[
-                const SizedBox(height: 6),
-                statusBadges!,
-              ],
+              Container(
+                width: 4,
+                height: 52,
+                margin: const EdgeInsets.only(top: 2, right: 10),
+                decoration: BoxDecoration(
+                  color: level.color,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                    ),
+                    if (statusBadges != null) ...[
+                      const SizedBox(height: 8),
+                      statusBadges!,
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  RiskTag(level: level, compact: true),
+                  if (time.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(time, style: const TextStyle(fontSize: 11, color: AppColors.textHint)),
+                  ],
+                ],
+              ),
             ],
           ),
-        ),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            RiskTag(level: level, compact: true),
-            const SizedBox(height: 4),
-            Text(time, style: const TextStyle(fontSize: 11, color: AppColors.textHint)),
-          ],
         ),
       ),
     );

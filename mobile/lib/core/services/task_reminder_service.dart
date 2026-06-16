@@ -49,7 +49,10 @@ class TaskReminderService {
         channelId,
         '每日任务提醒',
         description: '汇总待更换与待贴标签任务',
-        importance: Importance.high,
+        importance: Importance.max,
+        playSound: true,
+        enableVibration: true,
+        showBadge: true,
       ),
     );
     await androidPlugin.requestNotificationsPermission();
@@ -85,6 +88,7 @@ class TaskReminderService {
       return;
     }
     await _safeSchedule();
+    await sendTestNotification();
   }
 
   Future<TimeOfDay> getReminderTime() async {
@@ -100,6 +104,9 @@ class TaskReminderService {
     await prefs.setInt(_keyHour, time.hour);
     await prefs.setInt(_keyMinute, time.minute);
     await _safeSchedule();
+    if (await isEnabled()) {
+      await sendTestNotification();
+    }
   }
 
   Future<void> _safeSchedule() async {
@@ -192,6 +199,17 @@ class TaskReminderService {
       notificationId + 1,
       '今日任务汇总',
       body,
+      _notificationDetails,
+    );
+  }
+
+  Future<void> sendTestNotification() async {
+    if (!_initialized) await init();
+    await _setupAndroidChannel();
+    await _notifications.show(
+      notificationId + 2,
+      '提醒已生效',
+      '每日任务提醒已开启，到达设定时间后将推送汇总',
       _notificationDetails,
     );
   }

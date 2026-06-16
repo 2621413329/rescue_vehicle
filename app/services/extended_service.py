@@ -302,6 +302,7 @@ class DashboardExtendedService:
             i
             for i in inventories
             if inventory_needs_replace(i.remaining_days, i.is_expired, i.is_near_expiry)
+            or i.task_replace_done
         ]
         total_replace = len(replace_items)
         completed_replace = sum(1 for i in replace_items if i.task_replace_done)

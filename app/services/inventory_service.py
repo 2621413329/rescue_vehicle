@@ -56,7 +56,7 @@ class InventoryService:
         inventory.is_near_expiry = expiry_fields["is_near_expiry"]
         inventory.is_expired = expiry_fields["is_expired"]
         inventory.is_low_stock = calculate_low_stock(inventory.quantity, inventory.minimum_quantity)
-        if not inventory_needs_replace(
+        if inventory_needs_replace(
             inventory.remaining_days, inventory.is_expired, inventory.is_near_expiry
         ):
             inventory.task_replace_done = False
@@ -294,11 +294,11 @@ class InventoryService:
                 inventory.quantity = quantity
             inventory.last_check_time = now
             inventory.updated_by = operator.id
-            inventory.task_replace_done = True
-            inventory.task_replace_done_at = now
             inventory.task_label_done = False
             inventory.task_label_done_at = None
             self._apply_calculations(inventory)
+            inventory.task_replace_done = True
+            inventory.task_replace_done_at = now
             reason = remark or "已完成更换并录入新效期"
             AuditService.log(
                 self.db,

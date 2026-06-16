@@ -26,7 +26,6 @@ class DashboardPage extends ConsumerWidget {
             SliverToBoxAdapter(child: _HealthBoardSection(board: data.healthBoard)),
             SliverToBoxAdapter(child: _ExpiryForecastSection(forecasts: data.expiryForecasts)),
             SliverToBoxAdapter(child: _ReplacePlanSection(plans: data.replacePlans)),
-            SliverToBoxAdapter(child: _LabelCenterSection(data: data)),
             SliverToBoxAdapter(child: _RecentAuditSection(audits: data.recentAudits)),
             const SliverToBoxAdapter(child: SizedBox(height: 24)),
           ],
@@ -327,47 +326,6 @@ class _ReplacePlanSection extends StatelessWidget {
           },
         ),
       ],
-    );
-  }
-}
-
-class _LabelCenterSection extends StatelessWidget {
-  const _LabelCenterSection({required this.data});
-  final DashboardData data;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SectionHeader(title: '标签管理中心', actionLabel: '进入', onAction: () => context.push('/label')),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            children: [
-              Expanded(child: _labelStat('待贴标签', data.labelPending, AppColors.primary)),
-              const SizedBox(width: 10),
-              Expanded(child: _labelStat('待更新', data.labelNeedUpdate, AppColors.warning)),
-              const SizedBox(width: 10),
-              Expanded(child: _labelStat('待打印', data.labelNeedPrint, AppColors.lowStock)),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _labelStat(String label, int count, Color color) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          children: [
-            Text('$count', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color)),
-            Text(label, style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
-          ],
-        ),
-      ),
     );
   }
 }

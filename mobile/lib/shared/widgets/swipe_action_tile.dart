@@ -52,50 +52,65 @@ class _SwipeActionTileState extends State<SwipeActionTile> {
   Widget build(BuildContext context) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: widget.actions.map((action) {
-                return Material(
-                  color: action.color,
-                  child: InkWell(
-                    onTap: () {
-                      _close();
-                      action.onTap();
-                    },
-                    child: SizedBox(
-                      width: widget.actionWidth,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          if (action.icon != null) Icon(action.icon, color: Colors.white, size: 20),
-                          const SizedBox(height: 4),
-                          Text(
-                            action.label,
-                            style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
-                            textAlign: TextAlign.center,
+      clipBehavior: Clip.hardEdge,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return Stack(
+            clipBehavior: Clip.hardEdge,
+            children: [
+              Positioned.fill(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: widget.actions.map((action) {
+                    return Material(
+                      color: action.color,
+                      child: InkWell(
+                        onTap: () {
+                          _close();
+                          action.onTap();
+                        },
+                        child: SizedBox(
+                          width: widget.actionWidth,
+                          height: constraints.maxHeight > 0 ? constraints.maxHeight : null,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              if (action.icon != null) Icon(action.icon, color: Colors.white, size: 20),
+                              const SizedBox(height: 4),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 4),
+                                child: Text(
+                                  action.label,
+                                  style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                                  textAlign: TextAlign.center,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
-                    ),
+                    );
+                  }).toList(),
+                ),
+              ),
+              GestureDetector(
+                onHorizontalDragUpdate: _onDragUpdate,
+                onHorizontalDragEnd: _onDragEnd,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOut,
+                  transform: Matrix4.translationValues(_offset, 0, 0),
+                  child: Material(
+                    color: Theme.of(context).cardColor,
+                    child: widget.child,
                   ),
-                );
-              }).toList(),
-            ),
-          ),
-          GestureDetector(
-            onHorizontalDragUpdate: _onDragUpdate,
-            onHorizontalDragEnd: _onDragEnd,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              curve: Curves.easeOut,
-              transform: Matrix4.translationValues(_offset, 0, 0),
-              child: widget.child,
-            ),
-          ),
-        ],
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

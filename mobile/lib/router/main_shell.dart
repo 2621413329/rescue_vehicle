@@ -29,7 +29,7 @@ class _MainShellState extends ConsumerState<MainShell> with WidgetsBindingObserv
       TaskReminderService.instance.init();
       _checkDailyReminder();
     });
-    _timer = Timer.periodic(const Duration(minutes: 1), (_) => _checkDailyReminder());
+    _timer = Timer.periodic(const Duration(seconds: 30), (_) => _checkDailyReminder());
   }
 
   @override

@@ -115,11 +115,11 @@ final warningStatsProvider = FutureProvider<Map<String, int>>((ref) async {
   var labelTotal = 0;
   var labelDone = 0;
   for (final t in tasks) {
-    if (t.needsReplace) {
+    if (t.needsReplace || t.taskReplaceDone) {
       replaceTotal++;
       if (t.taskReplaceDone) replaceDone++;
     }
-    if (t.needsLabel) {
+    if (t.needsLabel || t.taskLabelDone) {
       labelTotal++;
       if (t.taskLabelDone) labelDone++;
     }

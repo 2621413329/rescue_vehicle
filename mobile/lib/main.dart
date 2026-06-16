@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/config/env_config.dart';
 import 'core/notifications/reminder_lifecycle_host.dart';
-import 'core/notifications/task_reminder_service.dart';
 import 'modules/auth/services/auth_service.dart';
 import 'router/app_router.dart';
 import 'theme/app_theme.dart';
@@ -12,7 +11,6 @@ import 'theme/app_theme.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await EnvConfig.load();
-  await TaskReminderService.instance.initialize();
   runApp(const ProviderScope(child: RescueApp()));
 }
 class RescueApp extends ConsumerStatefulWidget {

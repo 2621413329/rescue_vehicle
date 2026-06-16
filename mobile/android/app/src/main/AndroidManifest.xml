@@ -38,7 +38,12 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- 供 flutter_local_notifications 使用，并防止 release 打包时剔除该 drawable -->
+        <meta-data
+            android:name="com.hospital.rescue.rescue_mobile.notification_icon"
+            android:resource="@drawable/ic_notification" />
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
+        <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ActionBroadcastReceiver" />
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED"/>

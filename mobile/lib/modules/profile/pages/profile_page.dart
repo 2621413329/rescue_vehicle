@@ -30,6 +30,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   TimeOfDay _reminderTime = const TimeOfDay(hour: 10, minute: 0);
   bool _loaded = false;
   bool _savingReminder = false;
+  bool _testingNotification = false;
 
   @override
   void initState() {
@@ -41,6 +42,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     final service = TaskReminderService.instance;
     final enabled = await service.isEnabled();
     final time = await service.getReminderTime();
+    await service.initialize();
     if (mounted) {
       setState(() {
         _reminderEnabled = enabled;
@@ -54,25 +56,41 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     final picked = await pickTimeZh(context, _reminderTime);
     if (picked == null) return;
     setState(() => _savingReminder = true);
-    await TaskReminderService.instance.setReminderTime(picked);
+    final scheduled = await TaskReminderService.instance.setReminderTime(picked);
     if (!mounted) return;
     setState(() {
       _reminderTime = picked;
       _savingReminder = false;
     });
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('已设置每日 ${formatTimeZh(picked)} 提醒')),
+      SnackBar(
+        content: Text(
+          scheduled
+              ? '已设置每日 ${formatTimeZh(picked)} 系统提醒'
+              : '时间已保存，但定时通知注册失败，请检查通知与闹钟权限',
+        ),
+      ),
     );
   }
 
   Future<void> _sendTestNotification() async {
-    setState(() => _savingReminder = true);
-    await TaskReminderService.instance.showTestNotification();
-    if (!mounted) return;
-    setState(() => _savingReminder = false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('已发送测试通知，请查看系统通知栏')),
-    );
+    setState(() => _testingNotification = true);
+    try {
+      final result = await TaskReminderService.instance.showTestNotification();
+      final service = TaskReminderService.instance;
+      if (!mounted) return;
+      final message = switch (result) {
+        NotificationActionResult.success => '已发送测试通知，请下拉通知栏查看',
+        NotificationActionResult.permissionDenied => '未授予通知权限，请在系统设置中允许「救备通」发送通知',
+        NotificationActionResult.initFailed => service.lastInitError == null
+            ? '通知服务初始化失败，请重启 App 后重试'
+            : '通知服务初始化失败：${service.lastInitError}',
+        NotificationActionResult.failed => '发送失败，请检查通知权限与系统设置',
+      };
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    } finally {
+      if (mounted) setState(() => _testingNotification = false);
+    }
   }
 
   Future<void> _toggleReminder(bool value) async {
@@ -80,11 +98,23 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       _reminderEnabled = value;
       _savingReminder = true;
     });
-    await TaskReminderService.instance.setEnabled(value);
+    final scheduled = await TaskReminderService.instance.setEnabled(value);
     if (!mounted) return;
     setState(() => _savingReminder = false);
+    if (value) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            scheduled
+                ? '已开启每日任务系统提醒'
+                : '已开启，但定时通知注册失败，请发送测试通知或检查系统权限',
+          ),
+        ),
+      );
+      return;
+    }
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(value ? '已开启每日任务提醒' : '已关闭每日任务提醒')),
+      const SnackBar(content: Text('已关闭每日任务提醒')),
     );
   }
 
@@ -160,11 +190,11 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                   leading: const Icon(Icons.notifications_active_outlined, color: AppColors.primary),
                   title: const Text('发送测试通知'),
                   subtitle: const Text('验证系统通知栏是否正常显示'),
-                  trailing: _savingReminder
+                  trailing: _testingNotification
                       ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
                       : const Icon(Icons.chevron_right),
-                  enabled: !_savingReminder,
-                  onTap: _savingReminder ? null : _sendTestNotification,
+                  enabled: !_testingNotification && !_savingReminder,
+                  onTap: _testingNotification || _savingReminder ? null : _sendTestNotification,
                 ),
               ),
             ],

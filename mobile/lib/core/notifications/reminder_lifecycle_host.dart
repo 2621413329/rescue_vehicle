@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../modules/auth/services/auth_service.dart';
 import '../../modules/warning/providers/warning_provider.dart';
 import 'task_reminder_service.dart';
 
@@ -23,8 +24,16 @@ class _ReminderLifecycleHostState extends ConsumerState<ReminderLifecycleHost> w
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _onForeground());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _onLaunch());
     _timer = Timer.periodic(const Duration(minutes: 1), (_) => _maybeShowSupplementalNotification());
+  }
+
+  Future<void> _onLaunch() async {
+    final service = TaskReminderService.instance;
+    await service.initialize();
+    await service.requestNotificationPermissionOnLaunch();
+    unawaited(service.scheduleFromPreferences());
+    unawaited(_maybeShowSupplementalNotification());
   }
 
   @override
@@ -42,11 +51,14 @@ class _ReminderLifecycleHostState extends ConsumerState<ReminderLifecycleHost> w
   }
 
   Future<void> _onForeground() async {
-    await TaskReminderService.instance.scheduleFromPreferences();
-    await _maybeShowSupplementalNotification();
+    unawaited(TaskReminderService.instance.scheduleFromPreferences());
+    unawaited(_maybeShowSupplementalNotification());
   }
 
   Future<void> _maybeShowSupplementalNotification() async {
+    final loggedIn = ref.read(authStateProvider);
+    if (!loggedIn) return;
+
     final service = TaskReminderService.instance;
     if (!await service.shouldFireSupplementalNotification()) return;
 

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +10,11 @@ import 'package:timezone/timezone.dart' as tz;
 final taskReminderServiceProvider = Provider<TaskReminderService>((ref) {
   return TaskReminderService.instance;
 });
+
+enum NotificationActionResult { success, initFailed, permissionDenied, failed }
+
+@pragma('vm:entry-point')
+void _onNotificationTap(NotificationResponse response) {}
 
 /// 系统级本地通知：每日定时 + 立即推送（非 App 内 Dialog）。
 class TaskReminderService {
@@ -25,25 +31,56 @@ class TaskReminderService {
   static const channelId = 'daily_task_channel';
   static const channelName = '每日任务提醒';
   static const channelDesc = '汇总待更换与待贴标签任务';
-  static const _androidNotificationIcon = '@drawable/ic_notification';
+
+  static const _androidIcon = 'ic_notification';
 
   static const scheduledTitle = '今日任务汇总';
   static const scheduledBody = '打开救备通，查看待更换与待贴标签任务';
 
-  final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
+  FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
   bool _initialized = false;
+  bool _timezoneReady = false;
+  String? _activeIcon;
+  Future<void>? _initFuture;
+  String? _lastInitError;
+
+  String? get lastInitError => _lastInitError;
+  bool get isInitialized => _initialized;
 
   AndroidFlutterLocalNotificationsPlugin? _androidPlugin() =>
       _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
 
+  void _resetPluginState() {
+    _plugin = FlutterLocalNotificationsPlugin();
+    _initialized = false;
+    _activeIcon = null;
+    _initFuture = null;
+  }
+
   Future<void> _configureLocalTimeZone() async {
-    tz_data.initializeTimeZones();
+    if (_timezoneReady) return;
     try {
-      final name = await FlutterTimezone.getLocalTimezone();
-      tz.setLocalLocation(tz.getLocation(name));
-    } catch (_) {
-      tz.setLocalLocation(tz.getLocation('Asia/Shanghai'));
+      tz_data.initializeTimeZones();
+      try {
+        final name = await FlutterTimezone.getLocalTimezone().timeout(const Duration(seconds: 10));
+        tz.setLocalLocation(tz.getLocation(_normalizeTimezone(name)));
+      } catch (_) {
+        tz.setLocalLocation(tz.getLocation('Asia/Shanghai'));
+      }
+      _timezoneReady = true;
+    } catch (e) {
+      _lastInitError = '时区配置失败: $e';
     }
+  }
+
+  String _normalizeTimezone(String name) {
+    const aliases = {
+      'China Standard Time': 'Asia/Shanghai',
+      'CST': 'Asia/Shanghai',
+      'Asia/Chongqing': 'Asia/Shanghai',
+      'Asia/Harbin': 'Asia/Shanghai',
+    };
+    return aliases[name] ?? name;
   }
 
   NotificationDetails get _notificationDetails => NotificationDetails(
@@ -51,8 +88,7 @@ class TaskReminderService {
           channelId,
           channelName,
           channelDescription: channelDesc,
-          icon: _androidNotificationIcon,
-          largeIcon: const DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
+          icon: _activeIcon ?? _androidIcon,
           importance: Importance.max,
           priority: Priority.high,
           visibility: NotificationVisibility.public,
@@ -64,46 +100,136 @@ class TaskReminderService {
         ),
       );
 
-  Future<void> initialize() async {
-    if (_initialized) return;
-    await _configureLocalTimeZone();
-    const settings = InitializationSettings(
-      android: AndroidInitializationSettings(_androidNotificationIcon),
-      iOS: DarwinInitializationSettings(
-        requestAlertPermission: true,
-        requestBadgePermission: true,
-        requestSoundPermission: true,
-      ),
-    );
-    await _plugin.initialize(
-      settings,
-      onDidReceiveNotificationResponse: (_) {},
-    );
-    final android = _androidPlugin();
-    await android?.createNotificationChannel(
-      const AndroidNotificationChannel(
-        channelId,
-        channelName,
-        description: channelDesc,
-        importance: Importance.max,
-        playSound: true,
-        enableVibration: true,
-        showBadge: true,
-      ),
-    );
-    _initialized = true;
-    await scheduleFromPreferences();
+  Future<void> initialize({bool force = false}) async {
+    if (_initialized && !force) return;
+    if (force) _resetPluginState();
+    try {
+      await (_initFuture ??= _initializeImpl());
+    } catch (e) {
+      _initFuture = null;
+      _lastInitError = '$e';
+      if (kDebugMode) {
+        debugPrint('[TaskReminderService] initialize failed: $e');
+      }
+    }
   }
 
-  /// 申请通知与精确闹钟权限（失败不抛错）。
-  Future<void> requestPermission() async {
+  Future<void> _initializeImpl() async {
+    if (_initialized) return;
+    _lastInitError = null;
+
+    final candidate = FlutterLocalNotificationsPlugin();
     try {
-      if (!_initialized) await initialize();
+      final ok = await candidate.initialize(
+        InitializationSettings(
+          android: AndroidInitializationSettings(_androidIcon),
+          iOS: const DarwinInitializationSettings(
+            requestAlertPermission: false,
+            requestBadgePermission: false,
+            requestSoundPermission: false,
+          ),
+        ),
+        onDidReceiveNotificationResponse: _onNotificationTap,
+      );
+      if (ok != true) {
+        throw Exception('initialize returned false');
+      }
+      _plugin = candidate;
+      _activeIcon = _androidIcon;
+      _initialized = true;
+    } catch (e) {
+      throw Exception('通知插件初始化失败: $e');
+    }
+
+    try {
+      await _androidPlugin()?.createNotificationChannel(
+        const AndroidNotificationChannel(
+          channelId,
+          channelName,
+          description: channelDesc,
+          importance: Importance.max,
+          playSound: true,
+          enableVibration: true,
+          showBadge: true,
+        ),
+      );
+    } catch (e) {
+      _lastInitError = '通知渠道创建失败（不影响测试通知）: $e';
+    }
+  }
+
+  Future<void> _ensureInitialized() async {
+    if (_initialized) return;
+    await initialize();
+  }
+
+  Future<bool> _notificationsEnabled() async {
+    final android = _androidPlugin();
+    if (android == null) return true;
+    try {
+      return await android.areNotificationsEnabled() ?? true;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  Future<bool> requestNotificationPermission() async {
+    try {
+      await _ensureInitialized();
+      if (!_initialized) return false;
       final android = _androidPlugin();
-      await android?.requestNotificationsPermission();
-      try {
-        await android?.requestExactAlarmsPermission();
-      } catch (_) {}
+      if (android == null) return true;
+
+      final enabled = await android.areNotificationsEnabled();
+      if (enabled == true) return true;
+
+      final granted = await android.requestNotificationsPermission();
+      if (granted == true) return true;
+      return await _notificationsEnabled();
+    } catch (_) {
+      return await _notificationsEnabled();
+    }
+  }
+
+  Future<void> _requestExactAlarmPermissionIfNeeded() async {
+    try {
+      final android = _androidPlugin();
+      if (android == null) return;
+      final canExact = await android.canScheduleExactNotifications();
+      if (canExact == true) return;
+      await android.requestExactAlarmsPermission().timeout(const Duration(seconds: 3));
+    } catch (_) {}
+  }
+
+  Future<AndroidScheduleMode> _preferredScheduleMode() async {
+    try {
+      final android = _androidPlugin();
+      final canExact = await android?.canScheduleExactNotifications();
+      if (canExact == true) {
+        return AndroidScheduleMode.exactAllowWhileIdle;
+      }
+    } catch (_) {}
+    return AndroidScheduleMode.inexactAllowWhileIdle;
+  }
+
+  Future<void> requestPermission() async {
+    await requestNotificationPermission();
+    await _requestExactAlarmPermissionIfNeeded();
+  }
+
+  /// 进入 App 后弹出系统通知权限请求（Android 13+）。
+  Future<void> requestNotificationPermissionOnLaunch() async {
+    try {
+      await initialize();
+      if (!_initialized) return;
+
+      final android = _androidPlugin();
+      if (android == null) return;
+
+      final enabled = await android.areNotificationsEnabled();
+      if (enabled == true) return;
+
+      await android.requestNotificationsPermission();
     } catch (_) {}
   }
 
@@ -114,14 +240,15 @@ class TaskReminderService {
     return prefs.getBool(_keyEnabled) ?? true;
   }
 
-  Future<void> setEnabled(bool value) async {
+  Future<bool> setEnabled(bool value) async {
     final prefs = await _prefs();
     await prefs.setBool(_keyEnabled, value);
     if (!value) {
       await _cancelScheduled();
-      return;
+      return true;
     }
-    await scheduleFromPreferences();
+    await requestPermission();
+    return scheduleFromPreferences();
   }
 
   Future<TimeOfDay> getReminderTime() async {
@@ -132,21 +259,25 @@ class TaskReminderService {
     );
   }
 
-  Future<void> setReminderTime(TimeOfDay time) async {
+  Future<bool> setReminderTime(TimeOfDay time) async {
     final prefs = await _prefs();
     await prefs.setInt(_keyHour, time.hour);
     await prefs.setInt(_keyMinute, time.minute);
-    await scheduleFromPreferences();
+    await requestPermission();
+    return scheduleFromPreferences();
   }
 
-  /// 根据偏好重新注册每日定时系统通知。
-  Future<void> scheduleFromPreferences() async {
-    if (!await isEnabled()) return;
+  Future<bool> scheduleFromPreferences() async {
+    if (!await isEnabled()) return false;
     try {
-      if (!_initialized) await initialize();
-      if (!_initialized) return;
+      await _ensureInitialized();
+      if (!_initialized) return false;
 
+      await requestNotificationPermission();
+      await _requestExactAlarmPermissionIfNeeded();
       await _configureLocalTimeZone();
+      if (!_timezoneReady) return false;
+
       final time = await getReminderTime();
       final now = tz.TZDateTime.now(tz.local);
       var scheduled = tz.TZDateTime(tz.local, now.year, now.month, now.day, time.hour, time.minute);
@@ -155,6 +286,7 @@ class TaskReminderService {
       }
 
       await _plugin.cancel(scheduledNotificationId);
+      final mode = await _preferredScheduleMode();
       try {
         await _plugin.zonedSchedule(
           scheduledNotificationId,
@@ -162,23 +294,30 @@ class TaskReminderService {
           scheduledBody,
           scheduled,
           _notificationDetails,
-          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+          androidScheduleMode: mode,
           matchDateTimeComponents: DateTimeComponents.time,
           uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
         );
+        return true;
       } catch (_) {
-        await _plugin.zonedSchedule(
-          scheduledNotificationId,
-          scheduledTitle,
-          scheduledBody,
-          scheduled,
-          _notificationDetails,
-          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-          matchDateTimeComponents: DateTimeComponents.time,
-          uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
-        );
+        if (mode == AndroidScheduleMode.exactAllowWhileIdle) {
+          await _plugin.zonedSchedule(
+            scheduledNotificationId,
+            scheduledTitle,
+            scheduledBody,
+            scheduled,
+            _notificationDetails,
+            androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+            matchDateTimeComponents: DateTimeComponents.time,
+            uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+          );
+          return true;
+        }
       }
-    } catch (_) {}
+    } catch (e) {
+      _lastInitError = '定时注册失败: $e';
+    }
+    return false;
   }
 
   Future<void> _cancelScheduled() async {
@@ -192,7 +331,6 @@ class TaskReminderService {
   String _todayKey(DateTime now) =>
       '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
 
-  /// App 回到前台后，若已过提醒时间且今日尚未推送汇总，则补发系统通知。
   Future<bool> shouldFireSupplementalNotification() async {
     if (!await isEnabled()) return false;
     final now = DateTime.now();
@@ -208,19 +346,27 @@ class TaskReminderService {
     await prefs.setString(_keyLastNotified, _todayKey(DateTime.now()));
   }
 
-  /// 立即弹出测试通知（验证通道是否正常）。
-  Future<void> showTestNotification() async {
-    await initialize();
-    await requestPermission();
-    await _plugin.show(
-      testNotificationId,
-      '提醒测试',
-      '若能看到这条通知，说明推送通道已正常工作',
-      _notificationDetails,
-    );
+  Future<NotificationActionResult> showTestNotification() async {
+    try {
+      await initialize(force: true);
+      if (!_initialized) return NotificationActionResult.initFailed;
+
+      final granted = await requestNotificationPermission();
+      if (!granted) return NotificationActionResult.permissionDenied;
+
+      await _plugin.show(
+        testNotificationId,
+        '提醒测试',
+        '若能看到这条通知，说明推送通道已正常工作',
+        _notificationDetails,
+      );
+      return NotificationActionResult.success;
+    } catch (e) {
+      _lastInitError = '测试通知失败: $e';
+      return NotificationActionResult.failed;
+    }
   }
 
-  /// 立即弹出带待办数量的系统通知（App 可关闭时由 zonedSchedule 负责固定文案）。
   Future<void> showDailySummaryNotification({
     required int replacePending,
     required int labelPending,
@@ -232,9 +378,10 @@ class TaskReminderService {
       return;
     }
     try {
-      if (!_initialized) await initialize();
+      await _ensureInitialized();
       if (!_initialized) return;
-      await requestPermission();
+      final granted = await requestNotificationPermission();
+      if (!granted) return;
       await _plugin.show(
         summaryNotificationId,
         scheduledTitle,

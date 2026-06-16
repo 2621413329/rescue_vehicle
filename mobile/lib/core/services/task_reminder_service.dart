@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
@@ -21,10 +22,23 @@ class TaskReminderService {
 
   final FlutterLocalNotificationsPlugin _notifications = FlutterLocalNotificationsPlugin();
   bool _initialized = false;
+  bool _timezoneReady = false;
+
+  Future<void> _configureLocalTimeZone() async {
+    if (_timezoneReady) return;
+    tz_data.initializeTimeZones();
+    try {
+      final name = await FlutterTimezone.getLocalTimezone();
+      tz.setLocalLocation(tz.getLocation(name));
+    } catch (_) {
+      tz.setLocalLocation(tz.getLocation('Asia/Shanghai'));
+    }
+    _timezoneReady = true;
+  }
 
   Future<void> init() async {
     if (_initialized) return;
-    tz_data.initializeTimeZones();
+    await _configureLocalTimeZone();
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
     const ios = DarwinInitializationSettings();
     await _notifications.initialize(
@@ -88,8 +102,13 @@ class TaskReminderService {
   }
 
   Future<void> scheduleDailyNotification() async {
-    if (!_initialized) await init();
+    if (!_initialized) {
+      await init();
+      return;
+    }
     if (!await isEnabled()) return;
+
+    await _configureLocalTimeZone();
 
     final time = await getReminderTime();
     final now = tz.TZDateTime.now(tz.local);
@@ -108,6 +127,7 @@ class TaskReminderService {
     const iosDetails = DarwinNotificationDetails();
     const details = NotificationDetails(android: androidDetails, iOS: iosDetails);
 
+    await _notifications.cancel(notificationId);
     await _notifications.zonedSchedule(
       notificationId,
       '今日任务汇总',

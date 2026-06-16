@@ -51,10 +51,18 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   Future<void> _pickReminderTime() async {
     final picked = await showTimePicker(context: context, initialTime: _reminderTime);
     if (picked == null) return;
-    await TaskReminderService.instance.setReminderTime(picked);
-    setState(() => _reminderTime = picked);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('已设置每日 ${_formatTime(picked)} 提醒')));
+    try {
+      await TaskReminderService.instance.setReminderTime(picked);
+      if (!mounted) return;
+      setState(() => _reminderTime = picked);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('已设置每日 ${_formatTime(picked)} 提醒')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('提醒时间保存失败，请检查通知权限后重试')),
+      );
     }
   }
 

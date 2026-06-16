@@ -57,6 +57,9 @@ class TaskReminderService {
         ),
       );
       await androidPlugin.requestNotificationsPermission();
+      try {
+        await androidPlugin.requestExactAlarmsPermission();
+      } catch (_) {}
     } catch (_) {
       // 权限未授予时仍可使用应用内弹窗提醒
     }
@@ -74,6 +77,7 @@ class TaskReminderService {
       );
       await _setupAndroidChannel();
       _initialized = true;
+      await _rescheduleDailyNotification();
     } catch (_) {
       // 初始化失败不影响偏好读写与应用内提醒
     }
@@ -86,13 +90,15 @@ class TaskReminderService {
     return prefs.getBool(_keyEnabled) ?? true;
   }
 
-  /// 仅写入偏好，不因通知插件/权限失败而抛错。
+  /// 写入偏好；开启/改时间后重新注册系统定时通知（失败不抛错）。
   Future<void> setEnabled(bool value) async {
     final prefs = await _prefs();
     await prefs.setBool(_keyEnabled, value);
     if (!value) {
       await _cancelScheduledNotifications();
+      return;
     }
+    await _rescheduleDailyNotification();
   }
 
   Future<TimeOfDay> getReminderTime() async {
@@ -103,11 +109,12 @@ class TaskReminderService {
     );
   }
 
-  /// 仅写入偏好，不因通知插件/权限失败而抛错。
+  /// 写入偏好并重新注册系统定时通知（失败不抛错）。
   Future<void> setReminderTime(TimeOfDay time) async {
     final prefs = await _prefs();
     await prefs.setInt(_keyHour, time.hour);
     await prefs.setInt(_keyMinute, time.minute);
+    await _rescheduleDailyNotification();
   }
 
   Future<void> _cancelScheduledNotifications() async {
@@ -115,6 +122,50 @@ class TaskReminderService {
     try {
       await _notifications.cancel(notificationId);
       await _notifications.cancel(notificationId + 1);
+    } catch (_) {}
+  }
+
+  /// 注册每日定时系统通知（应用未打开时也能推送）。
+  Future<void> _rescheduleDailyNotification() async {
+    if (!await isEnabled()) return;
+    try {
+      if (!_initialized) await init();
+      if (!_initialized) return;
+
+      await _configureLocalTimeZone();
+      final time = await getReminderTime();
+      final now = tz.TZDateTime.now(tz.local);
+      var scheduled = tz.TZDateTime(tz.local, now.year, now.month, now.day, time.hour, time.minute);
+      if (scheduled.isBefore(now)) {
+        scheduled = scheduled.add(const Duration(days: 1));
+      }
+
+      await _notifications.cancel(notificationId);
+      const title = '今日任务汇总';
+      const body = '请查看待更换与待贴标签任务';
+      try {
+        await _notifications.zonedSchedule(
+          notificationId,
+          title,
+          body,
+          scheduled,
+          _notificationDetails,
+          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+          matchDateTimeComponents: DateTimeComponents.time,
+          uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+        );
+      } catch (_) {
+        await _notifications.zonedSchedule(
+          notificationId,
+          title,
+          body,
+          scheduled,
+          _notificationDetails,
+          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+          matchDateTimeComponents: DateTimeComponents.time,
+          uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+        );
+      }
     } catch (_) {}
   }
 

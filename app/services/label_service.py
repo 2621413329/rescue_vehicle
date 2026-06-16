@@ -6,7 +6,8 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.crash_cart import CrashCart
-from app.models.enums import LabelColor, UserRole
+from app.models.enums import LabelColor, OperationType, UserRole
+from app.models.inventory import Inventory
 from app.models.item import Item
 from app.models.label import LabelPrintRecord
 from app.models.operation_reason import OperationReason
@@ -14,6 +15,14 @@ from app.models.user import User
 from app.repositories.inventory_repository import InventoryRepository
 from app.schemas.common import PageResult
 from app.utils.helpers import calculate_label_status
+
+OPERATION_TITLES = {
+    OperationType.CREATE.value: "入库",
+    OperationType.UPDATE.value: "修改库存",
+    OperationType.DELETE.value: "删除库存",
+    OperationType.LABEL_PRINT.value: "打印标签",
+    OperationType.REPLACE_DONE.value: "完成更换",
+}
 
 
 class LabelService:
@@ -59,7 +68,11 @@ class LabelService:
             items=page_items, total=len(result), page=page, page_size=page_size
         )
 
-    def print_labels(self, inventory_ids: list[int], operator: User) -> int:
+    def print_labels(
+        self, inventory_ids: list[int], operator: User, remark: str = "批量打印标签"
+    ) -> int:
+        from app.services.audit_service import AuditService
+
         count = 0
         for inv_id in inventory_ids:
             inv = self.inventory_repo.get_by_id(inv_id)
@@ -75,6 +88,16 @@ class LabelService:
                     print_time=datetime.now(timezone.utc),
                     status="PRINTED",
                 )
+            )
+            AuditService.log(
+                self.db,
+                module="inventory",
+                business_id=inv_id,
+                operation_type=OperationType.LABEL_PRINT,
+                old_data=None,
+                new_data={"label_color": color.value if hasattr(color, "value") else str(color), "remark": remark},
+                operator_id=operator.id,
+                operator_name=operator.real_name,
             )
             count += 1
         self.db.commit()
@@ -104,8 +127,28 @@ class TimelineService:
     def __init__(self, db: Session):
         self.db = db
 
+    def _operator_name(self, user_id: int | None) -> str:
+        if not user_id:
+            return ""
+        user = self.db.get(User, user_id)
+        return user.real_name if user else ""
+
+    def _format_inventory_snapshot(self, inv: Inventory) -> str:
+        parts = [f"数量 {inv.quantity}"]
+        if inv.batch_no:
+            parts.append(f"批号 {inv.batch_no}")
+        if inv.expiry_date:
+            parts.append(f"有效期 {inv.expiry_date}")
+        if inv.remark:
+            parts.append(f"备注 {inv.remark}")
+        return "，".join(parts)
+
     def inventory_timeline(self, inventory_id: int) -> list[dict]:
         from app.models.audit_log import AuditLog
+
+        inv = self.db.get(Inventory, inventory_id)
+        if not inv:
+            return []
 
         logs = list(
             self.db.scalars(
@@ -124,10 +167,35 @@ class TimelineService:
                 .order_by(OperationReason.created_at.asc())
             ).all()
         )
+
         items: list[dict] = []
+        has_create_log = any(
+            (log.operation_type.value if hasattr(log.operation_type, "value") else str(log.operation_type))
+            == OperationType.CREATE.value
+            for log in logs
+        )
+
+        if not has_create_log and inv.created_at:
+            items.append(
+                {
+                    "title": "入库",
+                    "operator_name": self._operator_name(inv.created_by),
+                    "time": inv.created_at.strftime("%Y-%m-%d %H:%M"),
+                    "detail": self._format_inventory_snapshot(inv),
+                    "_sort": inv.created_at,
+                }
+            )
+
         for log in logs:
+            op = log.operation_type.value if hasattr(log.operation_type, "value") else str(log.operation_type)
+            title = OPERATION_TITLES.get(op, op)
             detail = ""
-            if log.old_data and log.new_data:
+            if log.new_data and isinstance(log.new_data, dict):
+                if log.new_data.get("remark"):
+                    detail = str(log.new_data["remark"])
+                elif log.new_data.get("label_color"):
+                    detail = f"标签颜色 {log.new_data['label_color']}"
+            elif log.old_data and log.new_data:
                 detail = f"{log.old_data} → {log.new_data}"
             elif log.new_data:
                 detail = f"新建: {log.new_data}"
@@ -135,9 +203,7 @@ class TimelineService:
                 detail = f"删除: {log.old_data}"
             items.append(
                 {
-                    "title": log.operation_type.value
-                    if hasattr(log.operation_type, "value")
-                    else str(log.operation_type),
+                    "title": title,
                     "operator_name": log.operator_name or "",
                     "time": log.operation_time.strftime("%Y-%m-%d %H:%M")
                     if log.operation_time
@@ -146,16 +212,20 @@ class TimelineService:
                     "_sort": log.operation_time,
                 }
             )
+
         for r in reasons:
+            if r.reason_type.value == "INVENTORY_UPDATE":
+                continue
             items.append(
                 {
-                    "title": "操作原因",
-                    "operator_name": "",
+                    "title": "操作备注",
+                    "operator_name": self._operator_name(r.operator_id),
                     "time": r.created_at.strftime("%Y-%m-%d %H:%M") if r.created_at else "",
                     "detail": r.reason,
                     "_sort": r.created_at,
                 }
             )
+
         items.sort(key=lambda x: x.get("_sort") or datetime.min.replace(tzinfo=timezone.utc))
         for item in items:
             item.pop("_sort", None)

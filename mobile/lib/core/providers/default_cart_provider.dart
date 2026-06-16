@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../modules/inventory/services/inventory_service.dart';
-import 'api_client.dart';
+import '../../modules/inventory/providers/inventory_provider.dart';
+import '../network/api_client.dart';
 
 /// 单抢救车模式：默认使用系统中的第一辆抢救车
 final defaultCartProvider = FutureProvider<Map<String, dynamic>>((ref) async {

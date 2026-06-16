@@ -13,6 +13,7 @@ class InventoryItem {
     required this.remainingDays,
     required this.cartName,
     required this.layerName,
+    this.layerNo,
     required this.riskLevel,
     required this.labelStatus,
     this.managerName,
@@ -27,7 +28,15 @@ class InventoryItem {
   final int remainingDays;
   final String cartName;
   final String layerName;
+  final int? layerNo;
   final RiskLevel riskLevel;
   final String labelStatus;
   final String? managerName;
+
+  String get layerDisplay {
+    if (layerNo != null) return '$layerNo';
+    final match = RegExp(r'第?(\d+)').firstMatch(layerName);
+    if (match != null) return match.group(1)!;
+    return layerName.isEmpty ? '-' : layerName;
+  }
 }

@@ -5,18 +5,18 @@ import '../../../core/network/api_client.dart';
 
 class WarningTask {
   const WarningTask({
+    required this.inventoryId,
     required this.title,
     required this.subtitle,
     required this.category,
     required this.time,
-    required this.route,
   });
 
+  final int inventoryId;
   final String title;
   final String subtitle;
   final WarningCategory category;
   final String time;
-  final String route;
 }
 
 enum WarningCategory { nearExpiry, expired, labelUpdate, replace }
@@ -30,11 +30,14 @@ RiskLevel categoryLevel(WarningCategory c) => switch (c) {
 
 WarningTask _taskFromInventory(Map<String, dynamic> m, WarningCategory category) {
   final name = m['item_name'] as String? ?? '未知药品';
-  final layer = m['layer_name'] as String? ?? '';
+  final layerNo = m['layer_no'] as int?;
+  final layerName = m['layer_name'] as String? ?? '';
+  final layer = layerNo != null ? '层级 $layerNo' : (layerName.isEmpty ? '' : layerName);
   final days = m['remaining_days'] as int? ?? 0;
   final id = m['id'] as int? ?? 0;
   final subtitle = layer.isEmpty ? '剩余 $days 天' : '$layer · 剩余 $days 天';
   return WarningTask(
+    inventoryId: id,
     title: switch (category) {
       WarningCategory.expired => '$name 已过期',
       WarningCategory.nearExpiry => '$name 临近效期',
@@ -44,7 +47,6 @@ WarningTask _taskFromInventory(Map<String, dynamic> m, WarningCategory category)
     subtitle: subtitle,
     category: category,
     time: '',
-    route: '/inventory/$id',
   );
 }
 
@@ -78,10 +80,7 @@ final warningListProvider = FutureProvider<List<WarningTask>>((ref) async {
   }
 
   final seen = <int>{};
-  return tasks.where((t) {
-    final id = int.tryParse(t.route.split('/').last) ?? 0;
-    return seen.add(id);
-  }).toList();
+  return tasks.where((t) => seen.add(t.inventoryId)).toList();
 });
 
 final warningStatsProvider = FutureProvider<Map<WarningCategory, int>>((ref) async {

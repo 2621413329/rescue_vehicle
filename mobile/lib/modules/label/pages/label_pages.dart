@@ -77,10 +77,6 @@ class _LabelCenterPageState extends ConsumerState<LabelCenterPage> {
                   _selected.remove(id);
                 }
               }),
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => LabelHistoryPage(inventoryId: id)),
-              ),
             );
           },
         ),

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../shared/widgets/segment_chip_bar.dart';
 import '../models/item_models.dart';
 import '../services/item_service.dart';
 
@@ -67,7 +68,9 @@ class _ItemListPageState extends ConsumerState<ItemListPage> {
       appBar: AppBar(title: const Text('药品管理')),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
-          await context.push('/items/create');
+          final type = _typeFilter;
+          final path = type != null && type.isNotEmpty ? '/items/create?type=$type' : '/items/create';
+          await context.push(path);
           _reload();
         },
         icon: const Icon(Icons.add),
@@ -97,15 +100,18 @@ class _ItemListPageState extends ConsumerState<ItemListPage> {
               },
             ),
           ),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
+          SegmentChipBar(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-            child: Row(
-              children: [
-                _typeChip('全部', null),
-                ...ItemTypeLabels.all.map((t) => _typeChip(ItemTypeLabels.label(t), t)),
-              ],
-            ),
+            compact: true,
+            selectedValue: _typeFilter ?? 'all',
+            onSelected: (v) {
+              setState(() => _typeFilter = v == 'all' ? null : v);
+              _reload();
+            },
+            items: [
+              const SegmentChipItem(value: 'all', label: '全部'),
+              ...ItemTypeLabels.all.map((t) => SegmentChipItem(value: t, label: ItemTypeLabels.label(t))),
+            ],
           ),
           Expanded(
             child: async.when(
@@ -174,29 +180,13 @@ class _ItemListPageState extends ConsumerState<ItemListPage> {
       ),
     );
   }
-
-  Widget _typeChip(String label, String? value) {
-    final selected = _typeFilter == value || (_typeFilter == null && value == null);
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: FilterChip(
-        label: Text(label),
-        selected: selected,
-        onSelected: (_) {
-          setState(() => _typeFilter = value);
-          _reload();
-        },
-        selectedColor: AppColors.primaryLight,
-        checkmarkColor: AppColors.primary,
-      ),
-    );
-  }
 }
 
 class ItemEditPage extends ConsumerStatefulWidget {
-  const ItemEditPage({super.key, this.id});
+  const ItemEditPage({super.key, this.id, this.initialType});
 
   final int? id;
+  final String? initialType;
 
   @override
   ConsumerState<ItemEditPage> createState() => _ItemEditPageState();
@@ -214,6 +204,9 @@ class _ItemEditPageState extends ConsumerState<ItemEditPage> {
   @override
   void initState() {
     super.initState();
+    if (!_isEdit && widget.initialType != null && ItemTypeLabels.all.contains(widget.initialType)) {
+      _type = widget.initialType!;
+    }
     if (_isEdit) _load();
   }
 
@@ -303,13 +296,14 @@ class _ItemEditPageState extends ConsumerState<ItemEditPage> {
             decoration: const InputDecoration(labelText: '药品名称', prefixIcon: Icon(Icons.medication_outlined)),
           ),
           const SizedBox(height: 16),
-          DropdownButtonFormField<String>(
-            value: _type,
-            decoration: const InputDecoration(labelText: '类型', prefixIcon: Icon(Icons.category_outlined)),
-            items: ItemTypeLabels.all
-                .map((t) => DropdownMenuItem(value: t, child: Text(ItemTypeLabels.label(t))))
+          const Text('类型', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+          const SizedBox(height: 10),
+          TypeOptionGrid(
+            selected: _type,
+            onSelected: (v) => setState(() => _type = v),
+            options: ItemTypeLabels.all
+                .map((t) => SegmentChipItem(value: t, label: ItemTypeLabels.label(t)))
                 .toList(),
-            onChanged: (v) => setState(() => _type = v ?? ItemTypeLabels.medicine),
           ),
           if (_isEdit && _item != null) ...[
             const SizedBox(height: 16),

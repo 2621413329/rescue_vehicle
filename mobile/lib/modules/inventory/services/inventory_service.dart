@@ -24,6 +24,7 @@ class InventoryApiService {
         remainingDays: json['remaining_days'] as int? ?? 0,
         cartName: json['cart_name'] as String? ?? '',
         layerName: json['layer_name'] as String? ?? '',
+        layerNo: json['layer_no'] as int?,
         riskLevel: _risk(json),
         labelStatus: json['label_status_text'] as String? ?? '',
         managerName: json['manager_name'] as String?,
@@ -113,5 +114,16 @@ class InventoryApiService {
     };
     final data = await _api.put('/inventories/$id', data: body);
     return _fromJson(data);
+  }
+
+  Future<void> markTaskAction({
+    required int id,
+    required String action,
+    String? remark,
+  }) async {
+    await _api.post('/inventories/$id/task-actions', data: {
+      'action': action,
+      if (remark != null && remark.isNotEmpty) 'remark': remark,
+    });
   }
 }

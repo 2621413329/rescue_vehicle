@@ -86,9 +86,12 @@ def seed(db: Session) -> None:
     db.add(cart)
     db.flush()
 
-    layer1 = CrashCartLayer(cart_id=cart.id, layer_no=1, layer_name="第一层-急救药品", sort_order=1)
-    layer2 = CrashCartLayer(cart_id=cart.id, layer_no=2, layer_name="第二层-耗材", sort_order=2)
-    db.add_all([layer1, layer2])
+    layer1 = CrashCartLayer(cart_id=cart.id, layer_no=1, layer_name="1", sort_order=1)
+    layer2 = CrashCartLayer(cart_id=cart.id, layer_no=2, layer_name="2", sort_order=2)
+    layer3 = CrashCartLayer(cart_id=cart.id, layer_no=3, layer_name="3", sort_order=3)
+    layer4 = CrashCartLayer(cart_id=cart.id, layer_no=4, layer_name="4", sort_order=4)
+    layer5 = CrashCartLayer(cart_id=cart.id, layer_no=5, layer_name="5", sort_order=5)
+    db.add_all([layer1, layer2, layer3, layer4, layer5])
     db.flush()
 
     # 物资主数据

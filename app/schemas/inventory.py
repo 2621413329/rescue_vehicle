@@ -62,6 +62,7 @@ class InventoryDetailOut(InventoryOut):
     cart_name: str | None = None
     cart_code: str | None = None
     layer_name: str | None = None
+    layer_no: int | None = None
     label_status: str | None = None
     label_status_text: str | None = None
     manager_name: str | None = None

@@ -3,9 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/providers/default_cart_provider.dart';
-import '../../../core/constants/app_colors.dart';
 import '../../../shared/widgets/audit_timeline.dart';
+import '../../../shared/widgets/expiry_date_field.dart';
 import '../../../shared/widgets/inventory_card.dart';
+import '../../../shared/widgets/segment_chip_bar.dart';
 import '../models/inventory_models.dart';
 import '../providers/inventory_provider.dart';
 
@@ -70,7 +71,7 @@ class InventoryListPage extends ConsumerWidget {
                   expiryDate: items[i].expiryDate,
                   remainingDays: items[i].remainingDays,
                   cartName: '',
-                  layerName: items[i].layerName,
+                  layerName: items[i].layerDisplay,
                   riskLevel: items[i].riskLevel,
                   labelStatus: items[i].labelStatus,
                   managerName: items[i].managerName,
@@ -101,24 +102,14 @@ class _FilterBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
+    return SegmentChipBar(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-      child: Row(
-        children: _filters.map((f) {
-          final selected = current == f.$1;
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: FilterChip(
-              label: Text(f.$2),
-              selected: selected,
-              onSelected: (_) => onChanged(f.$1),
-              selectedColor: AppColors.primaryLight,
-              checkmarkColor: AppColors.primary,
-            ),
-          );
-        }).toList(),
-      ),
+      compact: true,
+      selectedValue: current.name,
+      onSelected: (v) => onChanged(InventoryFilter.values.byName(v)),
+      items: _filters
+          .map((f) => SegmentChipItem(value: f.$1.name, label: f.$2))
+          .toList(),
     );
   }
 }
@@ -137,37 +128,19 @@ class _LayerFilterBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (layers.isEmpty) return const SizedBox.shrink();
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
+    final sorted = [...layers]..sort((a, b) => (a['layer_no'] as int? ?? 0).compareTo(b['layer_no'] as int? ?? 0));
+    return SegmentChipBar(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-      child: Row(
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: FilterChip(
-              label: const Text('全部层级'),
-              selected: currentLayerId == null,
-              onSelected: (_) => onChanged(null),
-              selectedColor: AppColors.primaryLight,
-              checkmarkColor: AppColors.primary,
-            ),
-          ),
-          ...layers.map((layer) {
-            final id = layer['id'] as int;
-            final name = layer['layer_name'] as String? ?? '层级$id';
-            return Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: FilterChip(
-                label: Text(name),
-                selected: currentLayerId == id,
-                onSelected: (_) => onChanged(id),
-                selectedColor: AppColors.primaryLight,
-                checkmarkColor: AppColors.primary,
-              ),
-            );
-          }),
-        ],
-      ),
+      compact: true,
+      selectedValue: currentLayerId?.toString() ?? 'all',
+      onSelected: (v) => onChanged(v == 'all' ? null : int.parse(v)),
+      items: [
+        const SegmentChipItem(value: 'all', label: '全部'),
+        ...sorted.map((layer) {
+          final id = layer['id'] as int;
+          return SegmentChipItem(value: '$id', label: layerNoLabel(layer));
+        }),
+      ],
     );
   }
 }
@@ -206,7 +179,7 @@ class InventoryDetailPage extends ConsumerWidget {
                 expiryDate: item.expiryDate,
                 remainingDays: item.remainingDays,
                 cartName: '',
-                layerName: item.layerName,
+                layerName: item.layerDisplay,
                 riskLevel: item.riskLevel,
                 labelStatus: item.labelStatus,
                 managerName: item.managerName,
@@ -234,7 +207,16 @@ class _TimelineSection extends ConsumerWidget {
     return async.when(
       loading: () => const Card(child: Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()))),
       error: (e, _) => Card(child: Padding(padding: const EdgeInsets.all(16), child: Text('加载时间轴失败: $e'))),
-      data: (items) => Card(
+      data: (items) => items.isEmpty
+          ? Card(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Center(
+                  child: Text('暂无生命周期记录', style: TextStyle(color: Colors.grey.shade600)),
+                ),
+              ),
+            )
+          : Card(
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: AuditTimeline(
@@ -334,10 +316,7 @@ class _InventoryEditPageState extends ConsumerState<InventoryEditPage> {
             const SizedBox(height: 12),
             TextField(controller: _batchNo, decoration: const InputDecoration(labelText: '批号')),
             const SizedBox(height: 12),
-            TextField(
-              controller: _expiryDate,
-              decoration: const InputDecoration(labelText: '有效期 (YYYY-MM-DD)', helperText: '格式：2026-12-31'),
-            ),
+            ExpiryDateField(controller: _expiryDate),
             const SizedBox(height: 12),
             TextField(controller: _reason, decoration: const InputDecoration(labelText: '操作原因（必填）')),
             const SizedBox(height: 24),
@@ -479,7 +458,7 @@ class _InventoryCreatePageState extends ConsumerState<InventoryCreatePage> {
             value: _layerId,
             decoration: const InputDecoration(labelText: '层级（可选）'),
             items: _layers
-                .map((l) => DropdownMenuItem(value: l['id'] as int, child: Text(l['layer_name'] as String? ?? '')))
+                .map((l) => DropdownMenuItem(value: l['id'] as int, child: Text(layerNoLabel(l))))
                 .toList(),
             onChanged: (v) => setState(() => _layerId = v),
           ),
@@ -488,10 +467,7 @@ class _InventoryCreatePageState extends ConsumerState<InventoryCreatePage> {
           const SizedBox(height: 12),
           TextField(controller: _quantity, decoration: const InputDecoration(labelText: '数量'), keyboardType: TextInputType.number),
           const SizedBox(height: 12),
-          TextField(
-            controller: _expiryDate,
-            decoration: const InputDecoration(labelText: '有效期 (YYYY-MM-DD)', helperText: '格式：2026-12-31'),
-          ),
+          ExpiryDateField(controller: _expiryDate, required: true),
           const SizedBox(height: 12),
           TextField(controller: _remark, decoration: const InputDecoration(labelText: '备注')),
           const SizedBox(height: 24),

@@ -62,7 +62,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         ],
       ),
       GoRoute(path: '/items', builder: (_, __) => const ItemListPage()),
-      GoRoute(path: '/items/create', builder: (_, __) => const ItemEditPage()),
+      GoRoute(
+        path: '/items/create',
+        builder: (_, state) => ItemEditPage(initialType: state.uri.queryParameters['type']),
+      ),
       GoRoute(
         path: '/items/:id/edit',
         builder: (_, state) => ItemEditPage(id: int.parse(state.pathParameters['id']!)),

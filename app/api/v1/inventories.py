@@ -84,3 +84,25 @@ def inventory_timeline(
     _: User = Depends(require_permission(Permission.INVENTORY_READ)),
 ):
     return TimelineService(db).inventory_timeline(inventory_id)
+
+
+class TaskActionRequest(BaseModel):
+    action: str
+    remark: str | None = None
+
+
+@router.post("/{inventory_id}/task-actions", response_model=InventoryDetailOut)
+def mark_inventory_task_action(
+    inventory_id: int,
+    body: TaskActionRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission(Permission.INVENTORY_MANAGE)),
+):
+    return InventoryService(db).mark_task_action(
+        inventory_id,
+        body.action,
+        current_user,
+        body.remark,
+        get_client_ip(request),
+    )

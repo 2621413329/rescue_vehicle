@@ -23,6 +23,7 @@ from app.schemas.inventory import (
 from app.schemas.item import OperationReasonOut
 from app.services.audit_service import AuditService, OperationReasonService
 from app.services.extended_service import NotificationGenerator
+from app.services.label_service import LabelService
 from app.utils.helpers import calculate_expiry_fields, calculate_label_status, calculate_low_stock
 
 
@@ -64,6 +65,7 @@ class InventoryService:
             cart_name=cart.cart_name if cart else None,
             cart_code=cart.cart_code if cart else None,
             layer_name=layer.layer_name if layer else None,
+            layer_no=layer.layer_no if layer else None,
             label_status=ls["label_status"],
             label_status_text=ls["label_status_text"],
             manager_name=cart.manager_name if cart else None,
@@ -240,6 +242,54 @@ class InventoryService:
     def list_operation_reasons(self, inventory_id: int) -> list[OperationReasonOut]:
         records = self.reason_repo.list_by_business("inventory", inventory_id)
         return [OperationReasonOut.model_validate(r) for r in records]
+
+    def mark_task_action(
+        self,
+        inventory_id: int,
+        action: str,
+        operator: User,
+        remark: str | None = None,
+        ip_address: str | None = None,
+    ) -> InventoryDetailOut:
+        inventory = self.repo.get_by_id(inventory_id)
+        if not inventory:
+            raise HTTPException(status_code=404, detail="库存不存在")
+        self._check_cart_access(operator, inventory.cart_id)
+
+        if action == "LABEL_DONE":
+            reason = remark or "任务通知标记：已贴标签"
+            LabelService(self.db).print_labels([inventory_id], operator, remark=reason)
+        elif action == "REPLACE_DONE":
+            inventory.last_check_time = datetime.now(timezone.utc)
+            inventory.updated_by = operator.id
+            reason = remark or "任务通知标记：已完成更换"
+            AuditService.log(
+                self.db,
+                module="inventory",
+                business_id=inventory_id,
+                operation_type=OperationType.REPLACE_DONE,
+                old_data=None,
+                new_data={"action": "REPLACE_DONE", "remark": reason},
+                operator_id=operator.id,
+                operator_name=operator.real_name,
+                ip_address=ip_address,
+            )
+        else:
+            raise HTTPException(status_code=400, detail="不支持的操作类型")
+
+        OperationReasonService.record(
+            self.db,
+            module="inventory",
+            business_id=inventory_id,
+            reason_type=OperationReasonType.INVENTORY_TASK,
+            reason=reason,
+            operator_id=operator.id,
+        )
+        self.db.commit()
+        self.db.refresh(inventory)
+        NotificationGenerator.on_inventory_status_change(self.db, inventory)
+        self.db.commit()
+        return self._to_detail(inventory)
 
     def recalculate_all_expiry(self) -> int:
         inventories = self.repo.get_all_active()

@@ -81,9 +81,8 @@ String _titleFor(Map<String, dynamic> m, WarningCategory category) {
   };
 }
 
-bool _needsLabel(Map<String, dynamic> m) {
+bool _labelTaskEligible(Map<String, dynamic> m) {
   if (_isPermanent(m)) return false;
-  if (m['task_label_done'] as bool? ?? false) return false;
   if (_needsReplace(m)) return false;
   final days = m['remaining_days'] as int?;
   if (days == null) return false;
@@ -100,10 +99,10 @@ WarningTask? _taskFromInventory(Map<String, dynamic> m) {
   final replaceDone = m['task_replace_done'] as bool? ?? false;
   final labelDone = m['task_label_done'] as bool? ?? false;
   final needsReplace = _needsReplace(m);
-  final needsLabel = _needsLabel(m);
+  final labelEligible = _labelTaskEligible(m);
   final isPermanent = _isPermanent(m);
 
-  if (!needsReplace && !needsLabel && !isNearExpiry && !replaceDone && !labelDone) return null;
+  if (!needsReplace && !labelEligible && !isNearExpiry && !replaceDone && !labelDone) return null;
 
   final category = _primaryCategory(m);
   final remainingText = formatRemainingDaysText(days, isPermanent: isPermanent);
@@ -118,7 +117,7 @@ WarningTask? _taskFromInventory(Map<String, dynamic> m) {
     taskReplaceDone: replaceDone,
     taskLabelDone: labelDone,
     needsReplace: needsReplace,
-    needsLabel: needsLabel,
+    needsLabel: labelEligible || labelDone,
     sortRemainingDays: remainingDaysSortKey(days),
     isPermanent: isPermanent,
     batchNo: m['batch_no'] as String?,

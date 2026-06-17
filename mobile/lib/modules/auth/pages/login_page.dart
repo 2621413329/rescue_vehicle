@@ -16,8 +16,8 @@ class LoginPage extends ConsumerStatefulWidget {
 }
 
 class _LoginPageState extends ConsumerState<LoginPage> {
-  final _username = TextEditingController(text: 'admin');
-  final _password = TextEditingController(text: 'admin');
+  final _username = TextEditingController();
+  final _password = TextEditingController();
   bool _loading = false;
   String? _error;
 
@@ -42,7 +42,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       final detail = e.response?.data;
       final msg = detail is Map ? detail['detail']?.toString() : null;
       if (status == 401) {
-        setState(() => _error = '用户名或密码错误（默认账号 admin / admin）');
+        setState(() => _error = '用户名或密码错误');
       } else if (status == 422) {
         setState(() => _error = '请求格式错误，请重新安装最新 APK');
       } else if (e.type == DioExceptionType.connectionError) {

@@ -47,7 +47,7 @@ class WarningCenterPage extends ConsumerWidget {
       if (task.taskLabelDone) {
         actions.add(
           SwipeAction(
-            label: '撤销贴标',
+            label: '撤销贴标签',
             color: AppColors.warning,
             icon: Icons.undo,
             onTap: () => performUndoLabelTask(context, ref, inventoryId: task.inventoryId),

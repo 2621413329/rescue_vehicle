@@ -47,8 +47,10 @@ class TaskReminderService {
   String? get lastInitError => _lastInitError;
   bool get isInitialized => _initialized;
 
-  AndroidFlutterLocalNotificationsPlugin? _androidPlugin() =>
-      _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+  AndroidFlutterLocalNotificationsPlugin? _androidPlugin() => _plugin
+      .resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin
+      >();
 
   void _resetPluginState() {
     _plugin = FlutterLocalNotificationsPlugin();
@@ -62,7 +64,9 @@ class TaskReminderService {
     try {
       tz_data.initializeTimeZones();
       try {
-        final name = await FlutterTimezone.getLocalTimezone().timeout(const Duration(seconds: 10));
+        final name = await FlutterTimezone.getLocalTimezone().timeout(
+          const Duration(seconds: 10),
+        );
         tz.setLocalLocation(tz.getLocation(_normalizeTimezone(name)));
       } catch (_) {
         tz.setLocalLocation(tz.getLocation('Asia/Shanghai'));
@@ -84,23 +88,23 @@ class TaskReminderService {
   }
 
   NotificationDetails get _notificationDetails => NotificationDetails(
-        android: AndroidNotificationDetails(
-          channelId,
-          channelName,
-          channelDescription: channelDesc,
-          icon: _activeIcon ?? _androidIcon,
-          importance: Importance.max,
-          priority: Priority.high,
-          visibility: NotificationVisibility.public,
-          playSound: true,
-          enableVibration: true,
-        ),
-        iOS: const DarwinNotificationDetails(
-          presentAlert: true,
-          presentBadge: true,
-          presentSound: true,
-        ),
-      );
+    android: AndroidNotificationDetails(
+      channelId,
+      channelName,
+      channelDescription: channelDesc,
+      icon: _activeIcon ?? _androidIcon,
+      importance: Importance.max,
+      priority: Priority.high,
+      visibility: NotificationVisibility.public,
+      playSound: true,
+      enableVibration: true,
+    ),
+    iOS: const DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    ),
+  );
 
   Future<void> initialize({bool force = false}) async {
     if (_initialized && !force) return;
@@ -199,7 +203,9 @@ class TaskReminderService {
       if (android == null) return;
       final canExact = await android.canScheduleExactNotifications();
       if (canExact == true) return;
-      await android.requestExactAlarmsPermission().timeout(const Duration(seconds: 3));
+      await android.requestExactAlarmsPermission().timeout(
+        const Duration(seconds: 3),
+      );
     } catch (_) {}
   }
 
@@ -275,14 +281,25 @@ class TaskReminderService {
       await _ensureInitialized();
       if (!_initialized) return false;
 
-      await requestNotificationPermission();
+      final granted = await requestNotificationPermission();
+      if (!granted) {
+        _lastInitError = '通知权限未开启，无法注册后台提醒';
+        return false;
+      }
       await _requestExactAlarmPermissionIfNeeded();
       await _configureLocalTimeZone();
       if (!_timezoneReady) return false;
 
       final time = await getReminderTime();
       final now = tz.TZDateTime.now(tz.local);
-      var scheduled = tz.TZDateTime(tz.local, now.year, now.month, now.day, time.hour, time.minute);
+      var scheduled = tz.TZDateTime(
+        tz.local,
+        now.year,
+        now.month,
+        now.day,
+        time.hour,
+        time.minute,
+      );
       if (scheduled.isBefore(now)) {
         scheduled = scheduled.add(const Duration(days: 1));
       }
@@ -290,28 +307,13 @@ class TaskReminderService {
       await _plugin.cancel(scheduledNotificationId);
       final mode = await _preferredScheduleMode();
       try {
-        await _plugin.zonedSchedule(
-          scheduledNotificationId,
-          scheduledTitle,
-          scheduledBody,
-          scheduled,
-          _notificationDetails,
-          androidScheduleMode: mode,
-          matchDateTimeComponents: DateTimeComponents.time,
-          uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
-        );
+        await _scheduleDailyReminder(scheduled, mode);
         return true;
       } catch (_) {
         if (mode == AndroidScheduleMode.exactAllowWhileIdle) {
-          await _plugin.zonedSchedule(
-            scheduledNotificationId,
-            scheduledTitle,
-            scheduledBody,
+          await _scheduleDailyReminder(
             scheduled,
-            _notificationDetails,
-            androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-            matchDateTimeComponents: DateTimeComponents.time,
-            uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+            AndroidScheduleMode.inexactAllowWhileIdle,
           );
           return true;
         }
@@ -320,6 +322,23 @@ class TaskReminderService {
       _lastInitError = '定时注册失败: $e';
     }
     return false;
+  }
+
+  Future<void> _scheduleDailyReminder(
+    tz.TZDateTime scheduled,
+    AndroidScheduleMode mode,
+  ) {
+    return _plugin.zonedSchedule(
+      scheduledNotificationId,
+      scheduledTitle,
+      scheduledBody,
+      scheduled,
+      _notificationDetails,
+      androidScheduleMode: mode,
+      matchDateTimeComponents: DateTimeComponents.time,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+    );
   }
 
   Future<void> _cancelScheduled() async {
@@ -337,7 +356,13 @@ class TaskReminderService {
     if (!await isEnabled()) return false;
     final now = DateTime.now();
     final time = await getReminderTime();
-    final scheduled = DateTime(now.year, now.month, now.day, time.hour, time.minute);
+    final scheduled = DateTime(
+      now.year,
+      now.month,
+      now.day,
+      time.hour,
+      time.minute,
+    );
     if (now.isBefore(scheduled)) return false;
     final prefs = await _prefs();
     return prefs.getString(_keyLastNotified) != _todayKey(now);
